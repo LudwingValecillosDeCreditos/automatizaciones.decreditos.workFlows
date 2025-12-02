@@ -1,0 +1,454 @@
+{
+  "name": "Cambio Contacto - Agencia HubSpot",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.users \nSET business_id = {{ $json.id }}\nWHERE id = {{ $json.owner_id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -320,
+        -272
+      ],
+      "id": "51cd3ab1-0974-4e6a-95ec-6dd4a99e92da",
+      "name": "Execute a SQL query1",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id,owner_id FROM onboarding.businesses WHERE code = {{ $('Loop Over Items').item.json.codigo_agencia }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -512,
+        -272
+      ],
+      "id": "f9be206b-9ab0-4faf-8b64-a3654e8ea0cd",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e0f183d2-3bd3-4ec1-9d6c-40ae72bb9e73",
+              "leftValue": "={{ $('Edit Fields').item.json[\"Campo cambiado\"] }}",
+              "rightValue": "=business_id",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -752,
+        -96
+      ],
+      "id": "ed632c9f-7065-44f3-bfab-356829e0d588",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://automatizaciones.decreditos.com/webhook/sincroAgencia",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"code\": {{ $('Loop Over Items').item.json.codigo_agencia }}\n}\n ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -128,
+        -112
+      ],
+      "id": "4c71830c-0c73-47a0-ab07-a58f33e29589",
+      "name": "sincronizar agencia1"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://api.hubapi.com/crm/v4/objects/contacts/{{ $('GetUser1').item.json.results[0].id }}/associations/companies/{{ $('GetUser1').item.json.results[0].properties.associatedcompanyid }}?associationTypeId=1\n",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -912,
+        -96
+      ],
+      "id": "307699e9-9fc8-46e4-bedf-a3d263d56521",
+      "name": "desasingar agencia3",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4b4da5d4-2d56-4e7a-b1de-0d728edd4df4",
+              "name": "email",
+              "value": "={{ $json.email_usuario }}",
+              "type": "string"
+            },
+            {
+              "id": "156ae72e-63af-4f98-9734-af36b282a88e",
+              "name": "codigo agencia",
+              "value": "={{ $json.codigo_agencia }}",
+              "type": "string"
+            },
+            {
+              "id": "75a18ac3-12cc-4177-aa33-c31575620beb",
+              "name": "Campo cambiado",
+              "value": "={{ $json.campo_cambiado }}",
+              "type": "string"
+            },
+            {
+              "id": "e6df66c0-9329-43a8-ac3c-93e530a4dcab",
+              "name": "id del registro",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "ec52cdf0-0d76-49b8-82d4-1082b1f24233",
+              "name": "Id del usuario",
+              "value": "={{ $json.id_usuario }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1568,
+        -64
+      ],
+      "id": "60370077-7313-4e91-b2ef-79d99e38f979",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"codigo\",\n          \"operator\": \"EQ\",\n          \"value\": \"{{ $('Loop Over Items').item.json.codigo_agencia }}\"\n        }\n      ]\n    }\n  ],\n  \"limit\": 1\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1152,
+        -80
+      ],
+      "id": "8a2699e6-92ec-4890-8bc9-9c76fe2e8e87",
+      "name": "Obtener Agencia1",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"email\",\n          \"operator\": \"EQ\",\n          \"value\": \"{{ $json.email }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"emailverificado\",\n    \"identidad_validada\",\n    \"telefono_validado\",\n    \"associatedcompanyid\"\n  ],\n  \"limit\": 1\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1376,
+        -64
+      ],
+      "id": "bcadf0c2-6348-40c5-b094-29e153cf7702",
+      "name": "GetUser1",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.validaciones_n8n\nSET fecha_procesado = NOW(),\n    estado_proceso = 'success'\nWHERE id = {{ $('Loop Over Items').item.json.id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        80,
+        -112
+      ],
+      "id": "bebc3d9a-2c08-4342-9846-6d2bfe69ed59",
+      "name": "Succes: Update fecha_procesado y estado_proceso2",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1744,
+        -64
+      ],
+      "id": "286b99bf-789c-4623-8d20-006469226746",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2080,
+        -64
+      ],
+      "id": "4c236996-b79e-4a5e-a1de-b5816ddb9918",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT *\nFROM validaciones_n8n\nWHERE (\n        (fecha_procesado IS NULL AND estado_proceso = 'pending')\n        OR\n        (fecha_procesado IS NOT NULL AND estado_proceso = 'error_request')\n      )\n  AND destino NOT IN ('DB')\n  AND campo_cambiado IN ('owner_id', 'business_id')\n  AND fecha_cambio >= NOW() - INTERVAL 1 DAY\nORDER BY fecha_cambio ASC",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1920,
+        -64
+      ],
+      "id": "012866a9-0dae-4c52-a1b3-9c97e864b237",
+      "name": "Query validaciones_n8n",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Execute a SQL query1": {
+      "main": [
+        [
+          {
+            "node": "sincronizar agencia1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "sincronizar agencia1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sincronizar agencia1": {
+      "main": [
+        [
+          {
+            "node": "Succes: Update fecha_procesado y estado_proceso2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "desasingar agencia3": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "GetUser1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Agencia1": {
+      "main": [
+        [
+          {
+            "node": "desasingar agencia3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetUser1": {
+      "main": [
+        [
+          {
+            "node": "Obtener Agencia1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Succes: Update fecha_procesado y estado_proceso2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Query validaciones_n8n",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query validaciones_n8n": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d8b113e8-9575-4e8f-8129-64e7b2f312e1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
+  },
+  "id": "XnJ5oSnNvpyCCGdK",
+  "tags": []
+}

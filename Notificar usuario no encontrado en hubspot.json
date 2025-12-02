@@ -1,0 +1,223 @@
+{
+  "name": "Notificar usuario no encontrado en hubspot",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1824,
+        208
+      ],
+      "id": "cc55b6c8-7aaa-469b-b464-fc4654841b31",
+      "name": "Cada 30 minutos"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  v.id_usuario,\n  v.email_usuario,\n  SUM(CASE WHEN v.estado_proceso = 'error_request' THEN 1 ELSE 0 END) AS total_errores,\n  MAX(CASE WHEN v.estado_proceso = 'error_request' THEN v.fecha_cambio END) AS ultimo_error,\n  MIN(CASE WHEN v.estado_proceso = 'error_request' THEN v.fecha_cambio END) AS primer_error,\n  CASE \n    WHEN SUM(CASE WHEN v.estado_proceso = 'error_request' THEN 1 ELSE 0 END) > 4 THEN 1\n    ELSE 0\n  END AS supera_limite\nFROM validaciones_n8n v\nWHERE v.fecha_cambio >= NOW() - INTERVAL 1 DAY\nGROUP BY v.id_usuario, v.email_usuario\nORDER BY total_errores DESC;\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1600,
+        208
+      ],
+      "id": "ace48df0-5bdf-4475-b240-2a431b809150",
+      "name": "Query Usuarios con +4 Errores",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1376,
+        208
+      ],
+      "id": "e4428c85-1f85-43b8-a08c-553e11a9256e",
+      "name": "Loop Usuarios con Errores"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d986356a-21e1-444a-a29d-861bc40d6411",
+              "leftValue": "={{ $json.total_errores >= 4 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1184,
+        224
+      ],
+      "id": "b6be88e2-0918-4425-8f91-ca33f41d7294",
+      "name": "If"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -896,
+        304
+      ],
+      "id": "84654e55-0ead-4e72-a3bd-6b4785d35d9e",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -704,
+        128
+      ],
+      "id": "9586f702-68f8-4612-b635-189aa98cb434",
+      "name": "HTTP Request",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "sendTo": "lvalecillos@decreditos.com",
+        "subject": "Nuevo usuario sin crear en husbpot",
+        "message": "=Usuario con mas de 4 intentos de actualización en Hubspot:\nid usuario: {{ $json.id_usuario }}\nCorreo: {{ $json.email_usuario }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -912,
+        128
+      ],
+      "id": "ca554b37-5bec-40bd-ae11-beca8df1f12e",
+      "name": "Send a message",
+      "webhookId": "620cfc92-7886-43d8-b372-8f853995d083",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "MUlkvcs3buRmsacV",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Cada 30 minutos": {
+      "main": [
+        [
+          {
+            "node": "Query Usuarios con +4 Errores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Usuarios con +4 Errores": {
+      "main": [
+        [
+          {
+            "node": "Loop Usuarios con Errores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Usuarios con Errores": {
+      "main": [
+        [],
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Loop Usuarios con Errores",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "08c82a24-17ce-4428-84d7-eb9dd5367b19",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
+  },
+  "id": "AM1abUMPF1GX8LAe",
+  "tags": []
+}

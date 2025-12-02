@@ -1,0 +1,265 @@
+{
+  "name": "Sincronizador Email Oabording - Prendarios",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        32,
+        80
+      ],
+      "id": "69ae7d13-b91c-4678-aa10-c6c72bf5ab0a",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        480,
+        80
+      ],
+      "id": "cea52c84-2401-4b33-83f4-8b2cb0170bdc",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"codigo\",\n          \"operator\": \"EQ\",\n          \"value\": {{ $json.codigo_agencia }}\n        }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"equipo_email\"\n  ],\n  \"limit\": 1\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        704,
+        0
+      ],
+      "id": "a78fbc47-8483-4b5c-a629-43fe83af826d",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    a.codigo AS codigo_agencia,\n    a.nombre AS nombre_agencia,\n    a.EmailEquipo AS email_prendarios,\n    bc.email AS email_onboarding,\n    b.name AS nombre_onboarding,\n    b.id AS business_id,\n    b.created_at\nFROM prendarios.Agencias a\nLEFT JOIN onboarding.businesses b \n       ON a.codigo = b.code\nLEFT JOIN onboarding.business_contacts bc \n       ON bc.business_id = b.id\n       AND bc.type_id = 5  -- contacto de tipo \"equipo\"\nWHERE \n    (\n        a.EmailEquipo <> bc.email\n        OR (a.EmailEquipo IS NULL AND bc.email IS NOT NULL)\n        OR (a.EmailEquipo IS NOT NULL AND bc.email IS NULL)\n    )\n    AND b.disabled_at IS NULL;  -- creadas en los últimos 90 días",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        256,
+        80
+      ],
+      "id": "c4d648c1-771b-4d29-b307-8009852a8042",
+      "name": "Diferencias de correo Onboarding - Prendarios",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.business_contacts bc\nJOIN onboarding.businesses b \n    ON bc.business_id = b.id\nSET bc.email = '{{ $json.results[0].properties.equipo_email}}'\nWHERE b.code = {{ $('Loop Over Items').item.json.codigo_agencia }}\n  AND bc.type_id = 5; ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        928,
+        0
+      ],
+      "id": "a5fba1d2-2158-4b79-bd33-3719b60bcec9",
+      "name": "Businesses_contact",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE prendarios.Agencias a\nSET a.EmailEquipo = '{{ $('HTTP Request').item.json.results[0].properties.equipo_email }}'\nWHERE a.codigo = {{ $('Loop Over Items').item.json.codigo_agencia }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1152,
+        0
+      ],
+      "id": "2a129ccd-826c-4229-81bb-14a7ddbc722e",
+      "name": "Agencia.EmailEquipo",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO validaciones_n8n  \n  (campo_cambiado, valor, email_usuario, id_usuario, codigo_agencia, fecha_cambio, fecha_procesado, estado_proceso, destino)\nVALUES \n  (\n    'EmailAgenciaPrendario',\n    '{{ $(\"Loop Over Items\").item.json.email_onboarding }}',\n    '{{ $(\"Loop Over Items\").item.json.email_onboarding }}',\n    '{{ $(\"Loop Over Items\").item.json.business_id }}',\n    {{ $(\"Loop Over Items\").item.json.codigo_agencia }},\n    NOW(),\n  NOW(),\n    'success',\n    'DB'\n  );\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1376,
+        80
+      ],
+      "id": "0d237ca3-9546-426f-a0fa-bd77b995f09b",
+      "name": "Log",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        240,
+        288
+      ],
+      "id": "1a9fa4f7-65f7-4384-b6cd-2713ce8dc043",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "disabled": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Diferencias de correo Onboarding - Prendarios",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Businesses_contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Diferencias de correo Onboarding - Prendarios": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Businesses_contact": {
+      "main": [
+        [
+          {
+            "node": "Agencia.EmailEquipo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agencia.EmailEquipo": {
+      "main": [
+        [
+          {
+            "node": "Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "757d2b0a-e44d-40c7-a18d-324456136e0d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
+  },
+  "id": "ODrRjnygqvqIKlhU",
+  "tags": []
+}

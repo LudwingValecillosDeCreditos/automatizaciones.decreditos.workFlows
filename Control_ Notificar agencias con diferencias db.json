@@ -1,0 +1,1678 @@
+{
+  "name": "Control: Notificar agencias con diferencias db",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        { \"propertyName\": \"empresa_habilitada\", \"operator\": \"EQ\", \"value\": \"true\" },\n        { \"propertyName\": \"num_associated_contacts\", \"operator\": \"GT\", \"value\": \"0\" },\n        { \"propertyName\": \"createdate\", \"operator\": \"GTE\", \"value\": \"{{ Date.now() - (90 * 24 * 60 * 60 * 1000) }}\" }\n      ]\n    }\n  ],\n  \"properties\": [\"codigo\", \"name\", \"hubspot_owner_id\", \"num_associated_contacts\"],\n  \"limit\": 200\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2160,
+        2192
+      ],
+      "id": "36005018-00bd-40a0-a188-6697d18a628b",
+      "name": "Buscar Agencias Habilitadas",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.first().json.results || [];\n\nreturn results.map(r => ({\n  json: {\n    id: r.id,\n    properties: r.properties || {},\n    codigo: r.properties?.codigo || null,\n    name: r.properties?.name || null,\n    hubspot_owner_id: r.properties?.hubspot_owner_id || null,\n    num_associated_contacts: r.properties?.num_associated_contacts || 0\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1936,
+        2192
+      ],
+      "id": "cbe10b51-d957-4008-95e7-b739f6504ae2",
+      "name": "Transformar Empresas"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1712,
+        2192
+      ],
+      "id": "3dcfbf61-1c68-4eb9-968f-bb530a51dcf8",
+      "name": "Loop Agencias"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a84c5530-40e8-4570-a48a-f1532d3a26ac",
+              "name": "companyId",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "2a8faf87-8a69-4265-97a1-13c721ea6223",
+              "name": "companyName",
+              "value": "={{ $json.properties.name }}",
+              "type": "string"
+            },
+            {
+              "id": "7bc41b50-3159-4610-9dd2-6b1aed0cdc1a",
+              "name": "companyCodigo",
+              "value": "={{ $json.properties.codigo }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1488,
+        2096
+      ],
+      "id": "cd14c54d-236b-4e07-a9e5-0ea9100c8526",
+      "name": "Preparar Datos Empresa"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT disabled_at FROM onboarding.businesses WHERE code = {{ $('Loop Agencias').item.json.properties.codigo }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1488,
+        2288
+      ],
+      "id": "f182ef6a-690f-4bc3-82bb-31d5f806dffc",
+      "name": "Verificar Estado BD",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9d374127-1bb1-40af-b7f4-5c75e75222f9",
+              "leftValue": "={{ $json.disabled_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1264,
+        2288
+      ],
+      "id": "f917df66-47f4-4873-bee0-2b2616784f0f",
+      "name": "¿Está Deshabilitada?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.businesses SET disabled_at = NULL WHERE code = {{ $('Loop Agencias').item.json.properties.codigo }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1040,
+        2288
+      ],
+      "id": "18ea178a-8c55-47b6-9814-c4398f7bb42d",
+      "name": "Habilitar en BD",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.hubapi.com/crm/v4/objects/companies/{{ $json.companyId }}/associations/contacts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1264,
+        2096
+      ],
+      "id": "6eca4f83-caed-497f-8e52-1386b5e51d42",
+      "name": "Obtener Contactos",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const assocResults = $input.first().json.results || [];\nconst companyId = $('Preparar Datos Empresa').first().json.companyId;\nconst companyName = $('Preparar Datos Empresa').first().json.companyName;\nconst companyCodigo = $('Preparar Datos Empresa').first().json.companyCodigo;\n\nif (assocResults.length === 0) {\n  return [{\n    json: {\n      companyId,\n      companyName,\n      companyCodigo,\n      contactId: null,\n      noContacts: true\n    }\n  }];\n}\n\nreturn assocResults.map(contact => ({\n  json: {\n    companyId,\n    companyName,\n    companyCodigo,\n    contactId: contact.toObjectId\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        2096
+      ],
+      "id": "ea9d1b09-80e4-40f6-b9f3-c9860e084df6",
+      "name": "Transformar Contactos"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -816,
+        2096
+      ],
+      "id": "ca06ac65-e43a-4c0c-a2a3-7abebc84981e",
+      "name": "Loop Contactos"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/{{ $json.contactId }}?properties=cargo_sistema,email,firstname,lastname",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -592,
+        2224
+      ],
+      "id": "8e45cdab-6ba8-4447-af3c-360a69e99253",
+      "name": "Obtener Detalle Contacto",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const contactos = $input.all();\n\nlet hayDueno = false;\nconst duenos = [];\n\nfor (const item of contactos) {\n  const props = item.json.properties || {};\n  const cargo = (props.cargo_sistema || '').toString().toLowerCase();\n\n  if (cargo === 'dueno') {\n    hayDueno = true;\n    duenos.push({\n      id: item.json.id || props.hs_object_id,\n      email: props.email,\n      firstname: props.firstname,\n      lastname: props.lastname,\n      cargo_sistema: props.cargo_sistema\n    });\n  }\n}\n\nreturn [{\n  json: {\n    companyId: $('Preparar Datos Empresa').first().json.companyId,\n    companyName: $('Preparar Datos Empresa').first().json.companyName,\n    companyCodigo: $('Preparar Datos Empresa').first().json.companyCodigo,\n    totalContactos: contactos.length,\n    hayDueno,\n    duenos\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -592,
+        2032
+      ],
+      "id": "11251c6a-aa3c-4a67-9df6-5e64441f974f",
+      "name": "Verificar Dueño"
+    },
+    {
+      "parameters": {
+        "jsCode": "const empresas = items.map(i => i.json || i);\nconst sinDueno = empresas.filter(e => !e.hayDueno || (e.duenos || []).length === 0);\n\nreturn sinDueno.map(e => ({ json: e }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1488,
+        1904
+      ],
+      "id": "d59b9258-339d-49d8-bdb8-39af03436b84",
+      "name": "Filtrar Sin Dueño"
+    },
+    {
+      "parameters": {
+        "jsCode": "const agencias = items.map(i => i.json);\n\nlet mensaje = `🔎 *Reporte de Agencias Sin Dueño*\\n\\n`;\n\nagencias.forEach((agencia, index) => {\n  mensaje += `---------------------------------------\\n`;\n  mensaje += `🏢 *Agencia ${index + 1}*\\n`;\n  mensaje += `Código: ${agencia.companyCodigo ?? \"N/A\"}\\n`;\n  mensaje += `Nombre: ${agencia.companyName ?? \"N/A\"}\\n`;\n  mensaje += `Total contactos: ${agencia.totalContactos}\\n`;\n  mensaje += `⚠️ No se encontró ningún dueño.\\n\\n`;\n});\n\nreturn [{ json: { mensaje } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        1904
+      ],
+      "id": "e0166329-b0f8-47d2-9934-d1c6ae909067",
+      "name": "Generar Reporte"
+    },
+    {
+      "parameters": {
+        "sendTo": "lvalecillos@gmail.com",
+        "subject": "Agencias sin dueño",
+        "message": "={{ $json.mensaje }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -1040,
+        1904
+      ],
+      "id": "52a1b2f1-ab98-4609-9fd0-02e63ae60d0c",
+      "name": "Enviar Email",
+      "webhookId": "e70ae984-8030-4914-bd7e-ca4676088174",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "MUlkvcs3buRmsacV",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        { \"propertyName\": \"empresa_habilitada\", \"operator\": \"EQ\", \"value\": \"false\" },\n        { \"propertyName\": \"createdate\", \"operator\": \"GTE\", \"value\": \"{{ Date.now() - (80 * 24 * 60 * 60 * 1000) }}\" }\n      ]\n    }\n  ],\n  \"properties\": [\"codigo\", \"name\", \"hubspot_owner_id\", \"num_associated_contacts\"],\n  \"limit\": 200\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2160,
+        2800
+      ],
+      "id": "6a85bf09-3a2b-441a-865c-949f54bf4d12",
+      "name": "Buscar Agencias Deshabilitadas",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.first().json.results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1936,
+        2800
+      ],
+      "id": "b10f428d-7f74-43f4-b56f-4b4d1cad9dc3",
+      "name": "Transformar Deshabilitadas"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1712,
+        2800
+      ],
+      "id": "3234a1b4-c25c-4e4f-a152-67f2926c8655",
+      "name": "Loop Deshabilitadas"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT disabled_at FROM onboarding.businesses WHERE code = {{ $('Loop Deshabilitadas').item.json.properties.codigo }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1488,
+        2576
+      ],
+      "id": "192adfc9-0b9d-4e16-89a9-8ed49de246ea",
+      "name": "Verificar Estado BD2",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9d374127-1bb1-40af-b7f4-5c75e75222f9",
+              "leftValue": "={{ $json.disabled_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1264,
+        2576
+      ],
+      "id": "9a2941e6-3cf6-4ba0-acb5-0fde4b671050",
+      "name": "¿Está Habilitada en BD?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "94d26faf-0744-48be-9e10-d383454cf239",
+              "leftValue": "={{ $('Loop Deshabilitadas').item.json.properties.name }}",
+              "rightValue": "Test operaciones 10",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1040,
+        2672
+      ],
+      "id": "c77ad291-867a-4cb7-94fd-4056b9c2906d",
+      "name": "¿Es Test?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.businesses SET disabled_at = NOW() WHERE code = {{ $('Loop Deshabilitadas').item.json.properties.codigo }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -816,
+        2752
+      ],
+      "id": "7b4ae09a-7a25-4243-aa13-7c9fc61856c0",
+      "name": "Deshabilitar en BD",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.first().json.results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1936,
+        3232
+      ],
+      "id": "271eff8b-b947-4465-817d-17eb1c84235a",
+      "name": "Transformar Contactos Validados"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1712,
+        3232
+      ],
+      "id": "7051e02e-3a4f-4fe1-898e-34412931298d",
+      "name": "Loop Contactos Validados"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.hubapi.com/crm/v3/objects/companies/{{ $json.properties.associatedcompanyid }}?properties=codigo,name,onboarding_finalizado",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1488,
+        3088
+      ],
+      "id": "f7b76b8a-b5d6-485d-891a-9620ee7b211f",
+      "name": "Obtener Empresa",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5c079f3f-0531-4842-a9a3-c369131a3f16",
+              "leftValue": "={{ $json.properties.onboarding_finalizado }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1264,
+        3184
+      ],
+      "id": "0397a5c8-5549-4e5e-8460-12ad52076d9f",
+      "name": "¿Onboarding Finalizado?"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/companies/{{ $('Loop Contactos Validados').item.json.properties.associatedcompanyid }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"properties\": {\n    \"onboarding_finalizado\": \"true\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1040,
+        3248
+      ],
+      "id": "074c2c19-464e-4f88-b715-9cc3c1154123",
+      "name": "Marcar Onboarding Completo",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2384,
+        3232
+      ],
+      "id": "e5db11f8-5042-49cf-93b5-b836d3cc7caf",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        { \"propertyName\": \"emailverificado\", \"operator\": \"EQ\", \"value\": \"true\" },\n        { \"propertyName\": \"identidad_validada\", \"operator\": \"EQ\", \"value\": \"true\" },\n        { \"propertyName\": \"telefono_validado\", \"operator\": \"EQ\", \"value\": \"true\" },\n        { \"propertyName\": \"associatedcompanyid\", \"operator\": \"HAS_PROPERTY\" },\n        { \"propertyName\": \"createdate\", \"operator\": \"GTE\", \"value\": \"{{ Date.now() - (90 * 24 * 60 * 60 * 1000) }}\" }\n      ]\n    }\n  ],\n  \"properties\": [\"associatedcompanyid\", \"createdate\", \"email\"],\n  \"limit\": 200\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2160,
+        3232
+      ],
+      "id": "b9a31d20-4106-4e43-b0d1-8d77e503c01f",
+      "name": "Buscar Contactos Validados",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n{\n          \"propertyName\": \"associatedcompanyid\",\n          \"operator\": \"NOT_HAS_PROPERTY\"\n        },\n        {\n          \"propertyName\": \"createdate\",\n          \"operator\": \"GTE\",\n          \"value\": \"{{ Date.now() - (1 * 24 * 60 * 60 * 1000) }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"associatedcompanyid\",\n    \"createdate\",\n    \"email\"\n  ],\n  \"limit\": 200\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2096,
+        4432
+      ],
+      "id": "0f5c7b00-f3a3-4171-ba63-0cb1e69df1ea",
+      "name": "HTTP Request6",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"associatedcompanyid\",\n          \"operator\": \"NOT_HAS_PROPERTY\"\n        },\n        {\n          \"propertyName\": \"createdate\",\n          \"operator\": \"GTE\",\n          \"value\": \"{{ Date.now() - (45 * 24 * 60 * 60 * 1000) }}\"\n        },\n        {\n          \"propertyName\": \"hs_object_source\",\n          \"operator\": \"NEQ\",\n          \"value\": \"FORM\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"associatedcompanyid\",\n    \"createdate\",\n    \"email\",\n    \"firstname\",\n    \"lastname\",\n    \"hs_analytics_source\",\n    \"hs_analytics_source_data_1\",\n    \"hs_object_source\"\n  ],\n  \"limit\": 200\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2160,
+        3536
+      ],
+      "id": "affa9e79-f255-4399-8597-338f44d393ab",
+      "name": "Buscar Contactos Sin Empresa",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "lvalecillos@decreditos.com",
+        "subject": "Contactos sin empresa NO creados por formulario",
+        "message": "={{ $json.mensaje }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -416,
+        3536
+      ],
+      "id": "39fbdbad-417c-45cc-a344-297a0d8c4128",
+      "name": "Enviar Email1",
+      "webhookId": "06b2f3c9-0d01-4818-8e5e-380c949ad54b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "MUlkvcs3buRmsacV",
+          "name": "Gmail account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1712,
+        3536
+      ],
+      "id": "5c915053-9624-4157-8219-15b66ebe6091",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT u.*, b.disabled_at FROM onboarding.users u INNER JOIN onboarding.businesses b ON u.business_id = b.id WHERE u.email = \"{{ $json.properties.email }}\";",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1488,
+        3536
+      ],
+      "id": "f76d6954-96b7-4830-aa5b-0d077bd9d139",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nreturn $input.first().json.results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1936,
+        3536
+      ],
+      "id": "668853cf-3355-4e0e-8fd4-ebd0b0d3dde7",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Agrupar todos los contactos que NO son de formulario\nconst contactos = items.map(i => i.json);\n\nlet mensaje = `📋 *Contactos Sin Empresa Creados NO por Formulario*\\n\\n`;\nmensaje += `Total encontrados: ${contactos.length}\\n\\n`;\n\ncontactos.forEach((contacto, index) => {\n  mensaje += `---------------------------------------\\n`;\n  mensaje += `👤 *Contacto ${index + 1}*\\n`;\n  mensaje += `ID: ${contacto.id}\\n`;\n  mensaje += `Nombre: ${contacto.firstname || ''} ${contacto.lastname || ''}\\n`;\n  mensaje += `Email: ${contacto.email || 'N/A'}\\n`;\n  mensaje += `Creado: ${new Date(contacto.createdate).toLocaleString('es-ES')}\\n`;\n  mensaje += `Fuente: ${contacto.source || 'N/A'}\\n`;\n  mensaje += `Datos fuente: ${contacto.sourceData || 'N/A'}\\n\\n`;\n});\n\nreturn [{\n  json: {\n    mensaje,\n    total: contactos.length,\n    contactos\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -688,
+        3536
+      ],
+      "id": "11db0048-004a-4aa8-9776-28b7c5fa0aa7",
+      "name": "Generar Reporte1",
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2320,
+        4624
+      ],
+      "id": "519a5346-cd94-47b2-91f6-66e71bfaa307",
+      "name": "When clicking ‘Execute workflow’",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "=https://api.hubapi.com/crm/v3/objects/companies/44689788041?properties=codigo,name,onboarding_finalizado",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2096,
+        4624
+      ],
+      "id": "df559dd5-34d6-43c4-96df-bc28e5eca6f7",
+      "name": "Obtener Empresa1",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://automatizaciones.decreditos.com/webhook/sincroAgencia",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=\n{\n  \"code\" : {{ $json.properties.codigo }}\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1472,
+        3856
+      ],
+      "id": "b5e0836c-b2a4-4149-b7cd-56bb8b1ede1a",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nreturn $input.first().json.results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1936,
+        3840
+      ],
+      "id": "debd605d-4c07-451f-a671-afa925a4857e",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        { \"propertyName\": \"num_associated_contacts\", \"operator\": \"EQ\", \"value\": \"0\" },\n        { \"propertyName\": \"createdate\", \"operator\": \"GTE\", \"value\": \"{{ Date.now() - (90 * 24 * 60 * 60 * 1000) }}\" }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"codigo\",\n    \"name\",\n    \"hubspot_owner_id\",\n    \"num_associated_contacts\"\n  ],\n  \"limit\": 200\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2048,
+        4816
+      ],
+      "id": "a7ebbf88-1aaf-4e00-8c35-8505ecedccc4",
+      "name": "BuscarAgencia",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "disabled": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        { \"propertyName\": \"num_associated_contacts\", \"operator\": \"EQ\", \"value\": \"0\" },\n        { \"propertyName\": \"createdate\", \"operator\": \"GTE\", \"value\": \"{{ Date.now() - (90 * 24 * 60 * 60 * 1000) }}\" }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"codigo\",\n    \"name\",\n    \"hubspot_owner_id\",\n    \"num_associated_contacts\"\n  ],\n  \"limit\": 200\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2160,
+        3840
+      ],
+      "id": "de3fdfea-9f92-481a-b583-09a7ca14bbef",
+      "name": "Empresas sin contacto",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1712,
+        3840
+      ],
+      "id": "096568b0-db91-4f74-9d57-167107ca7365",
+      "name": "Empresa sin contacto"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    b.code\nFROM onboarding.users u\nINNER JOIN onboarding.businesses b \n        ON u.business_id = b.id\nWHERE u.email = \"{{ $json.email }}\";",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1280,
+        3536
+      ],
+      "id": "ef554e5b-318a-411b-a499-2db5df39a878",
+      "name": "Execute a SQL query1",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://automatizaciones.decreditos.com/webhook/sincroAgencia",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=\n{\n  \"code\" : {{ $json.code }}\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1056,
+        3536
+      ],
+      "id": "6549b9d9-9670-43f0-b28c-74b5d3d2232d",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/23286673589",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"empresa_habilitada\": \"false\"\n}}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2064,
+        5040
+      ],
+      "id": "6ea74a97-3365-486c-bf37-faa00f61ba22",
+      "name": "BuscarAgencia1",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "disabled": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    bp.*\nFROM onboarding.businesses b\nINNER JOIN onboarding.business_platform bp \n    ON bp.business_id = b.id\nWHERE b.code = {{ $json.properties.codigo }}\n  AND bp.platform_id = 2;\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1392,
+        4112
+      ],
+      "id": "9c5e9165-ac3b-4de8-8723-83a7bcc4e44c",
+      "name": "Execute a SQL query2",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1664,
+        4096
+      ],
+      "id": "f118c1b1-dd94-4b55-bc69-f8035336d95f",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nreturn $input.first().json.results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1936,
+        4080
+      ],
+      "id": "f1f3fdde-224b-44ff-b180-6217d23b9e0a",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2284dabd-1efa-46b5-be23-d1aae85a1554",
+              "leftValue": "={{ $json.platform_id }}",
+              "rightValue": 2,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1168,
+        4112
+      ],
+      "id": "5cca74a3-620a-41dc-933e-3c05dbe69d2d",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "lvalecillos@decreditos.com",
+        "subject": "Agencia sin permisos",
+        "message": "=Info: {{ $('Loop Over Items1').item.json.properties }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -912,
+        4112
+      ],
+      "id": "ec469a6a-d582-4333-b048-302ed10c20ab",
+      "name": "Send a message",
+      "webhookId": "186cd867-5f89-4d9a-a71f-f4efb7bc1a86",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "MUlkvcs3buRmsacV",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"habilitada_plataforma_agencies\",\n          \"operator\": \"EQ\",\n          \"value\": \"true\"\n        },\n        {\n          \"propertyName\": \"createdate\",\n          \"operator\": \"GTE\",\n          \"value\": \"{{ Date.now() - (90 * 24 * 60 * 60 * 1000) }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"codigo\",\n    \"name\",\n    \"hubspot_owner_id\",\n    \"num_associated_contacts\"\n  ],\n  \"limit\": 200\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2144,
+        4080
+      ],
+      "id": "0395aa9b-ca9a-4deb-b9e1-d342171a64d3",
+      "name": "Validar Acceso Agencia",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Buscar Agencias Habilitadas": {
+      "main": [
+        [
+          {
+            "node": "Transformar Empresas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transformar Empresas": {
+      "main": [
+        [
+          {
+            "node": "Loop Agencias",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Agencias": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Sin Dueño",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar Datos Empresa",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Verificar Estado BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Datos Empresa": {
+      "main": [
+        [
+          {
+            "node": "Obtener Contactos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Estado BD": {
+      "main": [
+        [
+          {
+            "node": "¿Está Deshabilitada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Está Deshabilitada?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Habilitar en BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Contactos": {
+      "main": [
+        [
+          {
+            "node": "Transformar Contactos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transformar Contactos": {
+      "main": [
+        [
+          {
+            "node": "Loop Contactos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Contactos": {
+      "main": [
+        [
+          {
+            "node": "Verificar Dueño",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Obtener Detalle Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Detalle Contacto": {
+      "main": [
+        [
+          {
+            "node": "Loop Contactos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Dueño": {
+      "main": [
+        [
+          {
+            "node": "Loop Agencias",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Sin Dueño": {
+      "main": [
+        [
+          {
+            "node": "Generar Reporte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar Reporte": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Agencias Deshabilitadas": {
+      "main": [
+        [
+          {
+            "node": "Transformar Deshabilitadas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transformar Deshabilitadas": {
+      "main": [
+        [
+          {
+            "node": "Loop Deshabilitadas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Deshabilitadas": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Verificar Estado BD2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Estado BD2": {
+      "main": [
+        [
+          {
+            "node": "¿Está Habilitada en BD?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Está Habilitada en BD?": {
+      "main": [
+        [
+          {
+            "node": "¿Es Test?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Deshabilitadas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es Test?": {
+      "main": [
+        [
+          {
+            "node": "Loop Deshabilitadas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Deshabilitar en BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deshabilitar en BD": {
+      "main": [
+        [
+          {
+            "node": "Loop Deshabilitadas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transformar Contactos Validados": {
+      "main": [
+        [
+          {
+            "node": "Loop Contactos Validados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Contactos Validados": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Obtener Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Empresa": {
+      "main": [
+        [
+          {
+            "node": "¿Onboarding Finalizado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Onboarding Finalizado?": {
+      "main": [
+        [
+          {
+            "node": "Loop Contactos Validados",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar Onboarding Completo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar Onboarding Completo": {
+      "main": [
+        [
+          {
+            "node": "Loop Contactos Validados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Buscar Agencias Habilitadas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Buscar Agencias Deshabilitadas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Buscar Contactos Validados",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Buscar Contactos Sin Empresa",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Empresas sin contacto",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Validar Acceso Agencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Contactos Validados": {
+      "main": [
+        [
+          {
+            "node": "Transformar Contactos Validados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Contactos Sin Empresa": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email1": {
+      "main": [
+        []
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar Reporte1": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request6",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Obtener Empresa1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "BuscarAgencia",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "BuscarAgencia1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Empresa sin contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Empresa sin contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Empresas sin contacto": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Empresa sin contacto": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Execute a SQL query2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query2": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Acceso Agencia": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c6df0c1a-8be0-42a8-8f0f-b567415d4a3b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
+  },
+  "id": "7Z7hZa0Cw5AOISRM",
+  "tags": []
+}
