@@ -15,8 +15,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2160,
-        2192
+        -2240,
+        3040
       ],
       "id": "36005018-00bd-40a0-a188-6697d18a628b",
       "name": "Buscar Agencias Habilitadas",
@@ -35,8 +35,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1936,
-        2192
+        -2016,
+        3040
       ],
       "id": "cbe10b51-d957-4008-95e7-b739f6504ae2",
       "name": "Transformar Empresas"
@@ -48,46 +48,11 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -1712,
-        2192
+        -1792,
+        3040
       ],
       "id": "3dcfbf61-1c68-4eb9-968f-bb530a51dcf8",
       "name": "Loop Agencias"
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "a84c5530-40e8-4570-a48a-f1532d3a26ac",
-              "name": "companyId",
-              "value": "={{ $json.id }}",
-              "type": "string"
-            },
-            {
-              "id": "2a8faf87-8a69-4265-97a1-13c721ea6223",
-              "name": "companyName",
-              "value": "={{ $json.properties.name }}",
-              "type": "string"
-            },
-            {
-              "id": "7bc41b50-3159-4610-9dd2-6b1aed0cdc1a",
-              "name": "companyCodigo",
-              "value": "={{ $json.properties.codigo }}",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -1488,
-        2096
-      ],
-      "id": "cd14c54d-236b-4e07-a9e5-0ea9100c8526",
-      "name": "Preparar Datos Empresa"
     },
     {
       "parameters": {
@@ -98,8 +63,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1488,
-        2288
+        -1568,
+        2960
       ],
       "id": "f182ef6a-690f-4bc3-82bb-31d5f806dffc",
       "name": "Verificar Estado BD",
@@ -139,8 +104,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -1264,
-        2288
+        -1344,
+        2960
       ],
       "id": "f917df66-47f4-4873-bee0-2b2616784f0f",
       "name": "¿Está Deshabilitada?"
@@ -154,8 +119,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1040,
-        2288
+        -1120,
+        3040
       ],
       "id": "18ea178a-8c55-47b6-9814-c4398f7bb42d",
       "name": "Habilitar en BD",
@@ -163,140 +128,6 @@
         "mySql": {
           "id": "uypzAlinn7HdOqoC",
           "name": "n8n prod"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "url": "=https://api.hubapi.com/crm/v4/objects/companies/{{ $json.companyId }}/associations/contacts",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpBearerAuth",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -1264,
-        2096
-      ],
-      "id": "6eca4f83-caed-497f-8e52-1386b5e51d42",
-      "name": "Obtener Contactos",
-      "credentials": {
-        "httpBearerAuth": {
-          "id": "o6wh93iNfl5M3bKB",
-          "name": "TokenLauti"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const assocResults = $input.first().json.results || [];\nconst companyId = $('Preparar Datos Empresa').first().json.companyId;\nconst companyName = $('Preparar Datos Empresa').first().json.companyName;\nconst companyCodigo = $('Preparar Datos Empresa').first().json.companyCodigo;\n\nif (assocResults.length === 0) {\n  return [{\n    json: {\n      companyId,\n      companyName,\n      companyCodigo,\n      contactId: null,\n      noContacts: true\n    }\n  }];\n}\n\nreturn assocResults.map(contact => ({\n  json: {\n    companyId,\n    companyName,\n    companyCodigo,\n    contactId: contact.toObjectId\n  }\n}));"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -1040,
-        2096
-      ],
-      "id": "ea9d1b09-80e4-40f6-b9f3-c9860e084df6",
-      "name": "Transformar Contactos"
-    },
-    {
-      "parameters": {
-        "options": {
-          "reset": false
-        }
-      },
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
-      "position": [
-        -816,
-        2096
-      ],
-      "id": "ca06ac65-e43a-4c0c-a2a3-7abebc84981e",
-      "name": "Loop Contactos"
-    },
-    {
-      "parameters": {
-        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/{{ $json.contactId }}?properties=cargo_sistema,email,firstname,lastname",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpBearerAuth",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -592,
-        2224
-      ],
-      "id": "8e45cdab-6ba8-4447-af3c-360a69e99253",
-      "name": "Obtener Detalle Contacto",
-      "credentials": {
-        "httpBearerAuth": {
-          "id": "o6wh93iNfl5M3bKB",
-          "name": "TokenLauti"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const contactos = $input.all();\n\nlet hayDueno = false;\nconst duenos = [];\n\nfor (const item of contactos) {\n  const props = item.json.properties || {};\n  const cargo = (props.cargo_sistema || '').toString().toLowerCase();\n\n  if (cargo === 'dueno') {\n    hayDueno = true;\n    duenos.push({\n      id: item.json.id || props.hs_object_id,\n      email: props.email,\n      firstname: props.firstname,\n      lastname: props.lastname,\n      cargo_sistema: props.cargo_sistema\n    });\n  }\n}\n\nreturn [{\n  json: {\n    companyId: $('Preparar Datos Empresa').first().json.companyId,\n    companyName: $('Preparar Datos Empresa').first().json.companyName,\n    companyCodigo: $('Preparar Datos Empresa').first().json.companyCodigo,\n    totalContactos: contactos.length,\n    hayDueno,\n    duenos\n  }\n}];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -592,
-        2032
-      ],
-      "id": "11251c6a-aa3c-4a67-9df6-5e64441f974f",
-      "name": "Verificar Dueño"
-    },
-    {
-      "parameters": {
-        "jsCode": "const empresas = items.map(i => i.json || i);\nconst sinDueno = empresas.filter(e => !e.hayDueno || (e.duenos || []).length === 0);\n\nreturn sinDueno.map(e => ({ json: e }));"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -1488,
-        1904
-      ],
-      "id": "d59b9258-339d-49d8-bdb8-39af03436b84",
-      "name": "Filtrar Sin Dueño"
-    },
-    {
-      "parameters": {
-        "jsCode": "const agencias = items.map(i => i.json);\n\nlet mensaje = `🔎 *Reporte de Agencias Sin Dueño*\\n\\n`;\n\nagencias.forEach((agencia, index) => {\n  mensaje += `---------------------------------------\\n`;\n  mensaje += `🏢 *Agencia ${index + 1}*\\n`;\n  mensaje += `Código: ${agencia.companyCodigo ?? \"N/A\"}\\n`;\n  mensaje += `Nombre: ${agencia.companyName ?? \"N/A\"}\\n`;\n  mensaje += `Total contactos: ${agencia.totalContactos}\\n`;\n  mensaje += `⚠️ No se encontró ningún dueño.\\n\\n`;\n});\n\nreturn [{ json: { mensaje } }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -1264,
-        1904
-      ],
-      "id": "e0166329-b0f8-47d2-9934-d1c6ae909067",
-      "name": "Generar Reporte"
-    },
-    {
-      "parameters": {
-        "sendTo": "lvalecillos@gmail.com",
-        "subject": "Agencias sin dueño",
-        "message": "={{ $json.mensaje }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [
-        -1040,
-        1904
-      ],
-      "id": "52a1b2f1-ab98-4609-9fd0-02e63ae60d0c",
-      "name": "Enviar Email",
-      "webhookId": "e70ae984-8030-4914-bd7e-ca4676088174",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "MUlkvcs3buRmsacV",
-          "name": "Gmail account"
         }
       }
     },
@@ -314,8 +145,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2160,
-        2800
+        -2304,
+        3376
       ],
       "id": "6a85bf09-3a2b-441a-865c-949f54bf4d12",
       "name": "Buscar Agencias Deshabilitadas",
@@ -333,8 +164,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1936,
-        2800
+        -2080,
+        3376
       ],
       "id": "b10f428d-7f74-43f4-b56f-4b4d1cad9dc3",
       "name": "Transformar Deshabilitadas"
@@ -346,8 +177,8 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -1712,
-        2800
+        -1856,
+        3376
       ],
       "id": "3234a1b4-c25c-4e4f-a152-67f2926c8655",
       "name": "Loop Deshabilitadas"
@@ -361,8 +192,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1488,
-        2576
+        -1632,
+        3184
       ],
       "id": "192adfc9-0b9d-4e16-89a9-8ed49de246ea",
       "name": "Verificar Estado BD2",
@@ -402,8 +233,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -1264,
-        2576
+        -1408,
+        3184
       ],
       "id": "9a2941e6-3cf6-4ba0-acb5-0fde4b671050",
       "name": "¿Está Habilitada en BD?"
@@ -435,8 +266,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -1040,
-        2672
+        -1184,
+        3184
       ],
       "id": "c77ad291-867a-4cb7-94fd-4056b9c2906d",
       "name": "¿Es Test?"
@@ -450,8 +281,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -816,
-        2752
+        -960,
+        3248
       ],
       "id": "7b4ae09a-7a25-4243-aa13-7c9fc61856c0",
       "name": "Deshabilitar en BD",
@@ -469,8 +300,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1936,
-        3232
+        -2096,
+        3568
       ],
       "id": "271eff8b-b947-4465-817d-17eb1c84235a",
       "name": "Transformar Contactos Validados"
@@ -482,8 +313,8 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -1712,
-        3232
+        -1872,
+        3568
       ],
       "id": "7051e02e-3a4f-4fe1-898e-34412931298d",
       "name": "Loop Contactos Validados"
@@ -498,8 +329,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1488,
-        3088
+        -1648,
+        3424
       ],
       "id": "f7b76b8a-b5d6-485d-891a-9620ee7b211f",
       "name": "Obtener Empresa",
@@ -538,8 +369,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -1264,
-        3184
+        -1424,
+        3488
       ],
       "id": "0397a5c8-5549-4e5e-8460-12ad52076d9f",
       "name": "¿Onboarding Finalizado?"
@@ -558,8 +389,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1040,
-        3248
+        -1200,
+        3568
       ],
       "id": "074c2c19-464e-4f88-b715-9cc3c1154123",
       "name": "Marcar Onboarding Completo",
@@ -585,8 +416,8 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        -2384,
-        3232
+        -2544,
+        3856
       ],
       "id": "e5db11f8-5042-49cf-93b5-b836d3cc7caf",
       "name": "Schedule Trigger1"
@@ -605,8 +436,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2160,
-        3232
+        -2320,
+        3568
       ],
       "id": "b9a31d20-4106-4e43-b0d1-8d77e503c01f",
       "name": "Buscar Contactos Validados",
@@ -631,8 +462,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2096,
-        4432
+        -2320,
+        5008
       ],
       "id": "0f5c7b00-f3a3-4171-ba63-0cb1e69df1ea",
       "name": "HTTP Request6",
@@ -658,8 +489,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2160,
-        3536
+        -2320,
+        3856
       ],
       "id": "affa9e79-f255-4399-8597-338f44d393ab",
       "name": "Buscar Contactos Sin Empresa",
@@ -672,37 +503,13 @@
     },
     {
       "parameters": {
-        "sendTo": "lvalecillos@decreditos.com",
-        "subject": "Contactos sin empresa NO creados por formulario",
-        "message": "={{ $json.mensaje }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [
-        -416,
-        3536
-      ],
-      "id": "39fbdbad-417c-45cc-a344-297a0d8c4128",
-      "name": "Enviar Email1",
-      "webhookId": "06b2f3c9-0d01-4818-8e5e-380c949ad54b",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "MUlkvcs3buRmsacV",
-          "name": "Gmail account"
-        }
-      },
-      "disabled": true
-    },
-    {
-      "parameters": {
         "options": {}
       },
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -1712,
-        3536
+        -1872,
+        3856
       ],
       "id": "5c915053-9624-4157-8219-15b66ebe6091",
       "name": "Loop Over Items"
@@ -716,8 +523,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1488,
-        3536
+        -1648,
+        3856
       ],
       "id": "f76d6954-96b7-4830-aa5b-0d077bd9d139",
       "name": "Execute a SQL query",
@@ -735,33 +542,19 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1936,
-        3536
+        -2096,
+        3856
       ],
       "id": "668853cf-3355-4e0e-8fd4-ebd0b0d3dde7",
       "name": "Code in JavaScript"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Agrupar todos los contactos que NO son de formulario\nconst contactos = items.map(i => i.json);\n\nlet mensaje = `📋 *Contactos Sin Empresa Creados NO por Formulario*\\n\\n`;\nmensaje += `Total encontrados: ${contactos.length}\\n\\n`;\n\ncontactos.forEach((contacto, index) => {\n  mensaje += `---------------------------------------\\n`;\n  mensaje += `👤 *Contacto ${index + 1}*\\n`;\n  mensaje += `ID: ${contacto.id}\\n`;\n  mensaje += `Nombre: ${contacto.firstname || ''} ${contacto.lastname || ''}\\n`;\n  mensaje += `Email: ${contacto.email || 'N/A'}\\n`;\n  mensaje += `Creado: ${new Date(contacto.createdate).toLocaleString('es-ES')}\\n`;\n  mensaje += `Fuente: ${contacto.source || 'N/A'}\\n`;\n  mensaje += `Datos fuente: ${contacto.sourceData || 'N/A'}\\n\\n`;\n});\n\nreturn [{\n  json: {\n    mensaje,\n    total: contactos.length,\n    contactos\n  }\n}];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -688,
-        3536
-      ],
-      "id": "11db0048-004a-4aa8-9776-28b7c5fa0aa7",
-      "name": "Generar Reporte1",
-      "disabled": true
     },
     {
       "parameters": {},
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        -2320,
-        4624
+        -2544,
+        5200
       ],
       "id": "519a5346-cd94-47b2-91f6-66e71bfaa307",
       "name": "When clicking ‘Execute workflow’",
@@ -777,8 +570,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2096,
-        4624
+        -2320,
+        5200
       ],
       "id": "df559dd5-34d6-43c4-96df-bc28e5eca6f7",
       "name": "Obtener Empresa1",
@@ -802,11 +595,12 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1472,
-        3856
+        -1648,
+        4160
       ],
       "id": "b5e0836c-b2a4-4149-b7cd-56bb8b1ede1a",
-      "name": "HTTP Request"
+      "name": "HTTP Request",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -815,8 +609,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1936,
-        3840
+        -2096,
+        4160
       ],
       "id": "debd605d-4c07-451f-a671-afa925a4857e",
       "name": "Code in JavaScript1"
@@ -829,14 +623,14 @@
         "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        { \"propertyName\": \"num_associated_contacts\", \"operator\": \"EQ\", \"value\": \"0\" },\n        { \"propertyName\": \"createdate\", \"operator\": \"GTE\", \"value\": \"{{ Date.now() - (90 * 24 * 60 * 60 * 1000) }}\" }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"codigo\",\n    \"name\",\n    \"hubspot_owner_id\",\n    \"num_associated_contacts\"\n  ],\n  \"limit\": 200\n}\n",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        { \"propertyName\": \"num_associated_contacts\", \"operator\": \"EQ\", \"value\": \"0\" },\n        { \"propertyName\": \"createdate\", \"operator\": \"GTE\", \"value\": \"{{ Date.now() - (90 * 24 * 60 * 60 * 2000) }}\" }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"codigo\",\n    \"name\",\n    \"hubspot_owner_id\",\n    \"num_associated_contacts\"\n  ],\n  \"limit\": 200\n}\n",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2048,
-        4816
+        -2320,
+        5392
       ],
       "id": "a7ebbf88-1aaf-4e00-8c35-8505ecedccc4",
       "name": "BuscarAgencia",
@@ -863,8 +657,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2160,
-        3840
+        -2320,
+        4160
       ],
       "id": "de3fdfea-9f92-481a-b583-09a7ca14bbef",
       "name": "Empresas sin contacto",
@@ -883,8 +677,8 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -1712,
-        3840
+        -1872,
+        4160
       ],
       "id": "096568b0-db91-4f74-9d57-167107ca7365",
       "name": "Empresa sin contacto"
@@ -898,8 +692,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1280,
-        3536
+        -1424,
+        3856
       ],
       "id": "ef554e5b-318a-411b-a499-2db5df39a878",
       "name": "Execute a SQL query1",
@@ -922,39 +716,11 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1056,
-        3536
+        -1200,
+        3856
       ],
       "id": "6549b9d9-9670-43f0-b28c-74b5d3d2232d",
       "name": "HTTP Request1"
-    },
-    {
-      "parameters": {
-        "method": "PATCH",
-        "url": "https://api.hubapi.com/crm/v3/objects/companies/23286673589",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpBearerAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"properties\": {\n    \"empresa_habilitada\": \"false\"\n}}\n",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -2064,
-        5040
-      ],
-      "id": "6ea74a97-3365-486c-bf37-faa00f61ba22",
-      "name": "BuscarAgencia1",
-      "credentials": {
-        "httpBearerAuth": {
-          "id": "o6wh93iNfl5M3bKB",
-          "name": "TokenLauti"
-        }
-      },
-      "disabled": true,
-      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -965,8 +731,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1392,
-        4112
+        -1648,
+        4352
       ],
       "id": "9c5e9165-ac3b-4de8-8723-83a7bcc4e44c",
       "name": "Execute a SQL query2",
@@ -984,8 +750,8 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -1664,
-        4096
+        -1872,
+        4352
       ],
       "id": "f118c1b1-dd94-4b55-bc69-f8035336d95f",
       "name": "Loop Over Items1"
@@ -997,8 +763,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1936,
-        4080
+        -2096,
+        4352
       ],
       "id": "f1f3fdde-224b-44ff-b180-6217d23b9e0a",
       "name": "Code in JavaScript2"
@@ -1030,8 +796,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -1168,
-        4112
+        -1424,
+        4352
       ],
       "id": "5cca74a3-620a-41dc-933e-3c05dbe69d2d",
       "name": "If"
@@ -1046,8 +812,8 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [
-        -912,
-        4112
+        -1200,
+        4352
       ],
       "id": "ec469a6a-d582-4333-b048-302ed10c20ab",
       "name": "Send a message",
@@ -1073,8 +839,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2144,
-        4080
+        -2320,
+        4352
       ],
       "id": "0395aa9b-ca9a-4deb-b9e1-d342171a64d3",
       "name": "Validar Acceso Agencia",
@@ -1084,6 +850,130 @@
           "name": "TokenLauti"
         }
       }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    u.id,\n    u.email,\n    u.business_id,\n    u.created_at,\n    b.code AS business_code\nFROM onboarding.users u\nINNER JOIN onboarding.businesses b\n    ON b.id = u.business_id\nWHERE \n     u.created_at >= NOW() - INTERVAL 12 HOUR\nORDER BY u.created_at DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -2320,
+        4784
+      ],
+      "id": "abf2d9f4-a56b-4766-aa64-1e3e7c2343ef",
+      "name": "Execute a SQL query3",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://automatizaciones.decreditos.com/webhook/sincroAgencia",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"code\" :{{ $('Loop Over Items3').item.json.business_code }}\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1424,
+        4784
+      ],
+      "id": "7806c451-c1fd-4759-a035-6563173b8324",
+      "name": "HTTP Request3",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -2096,
+        4784
+      ],
+      "id": "3371261e-1bad-437e-a06b-64840c09d6a9",
+      "name": "Loop Over Items3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"email\",\n          \"operator\": \"EQ\",\n          \"value\": \"{{ $json.email }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"emailverificado\",\n    \"identidad_validada\",\n    \"telefono_validado\",\n    \"associatedcompanyid\"\n  ],\n  \"limit\": 1\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1872,
+        4640
+      ],
+      "id": "79d24930-9a3b-4e2f-9244-c88d7d3f4f64",
+      "name": "GetUser1",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "06331c1d-9553-409b-b013-5decfecf693c",
+              "leftValue": "={{ $json.results[0].id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "815a937d-56bd-4471-9ec7-eddb5f5681ac",
+              "leftValue": "={{ $json.results[0].properties.associatedcompanyid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1648,
+        4720
+      ],
+      "id": "75ba9dba-8b91-4c23-ae67-ff8cfcdd8577",
+      "name": "Existe en HS?"
     }
   ],
   "pinData": {},
@@ -1112,32 +1002,10 @@
     },
     "Loop Agencias": {
       "main": [
+        [],
         [
-          {
-            "node": "Filtrar Sin Dueño",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Preparar Datos Empresa",
-            "type": "main",
-            "index": 0
-          },
           {
             "node": "Verificar Estado BD",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Preparar Datos Empresa": {
-      "main": [
-        [
-          {
-            "node": "Obtener Contactos",
             "type": "main",
             "index": 0
           }
@@ -1161,90 +1029,6 @@
         [
           {
             "node": "Habilitar en BD",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Obtener Contactos": {
-      "main": [
-        [
-          {
-            "node": "Transformar Contactos",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Transformar Contactos": {
-      "main": [
-        [
-          {
-            "node": "Loop Contactos",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Loop Contactos": {
-      "main": [
-        [
-          {
-            "node": "Verificar Dueño",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Obtener Detalle Contacto",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Obtener Detalle Contacto": {
-      "main": [
-        [
-          {
-            "node": "Loop Contactos",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Verificar Dueño": {
-      "main": [
-        [
-          {
-            "node": "Loop Agencias",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Filtrar Sin Dueño": {
-      "main": [
-        [
-          {
-            "node": "Generar Reporte",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Generar Reporte": {
-      "main": [
-        [
-          {
-            "node": "Enviar Email",
             "type": "main",
             "index": 0
           }
@@ -1438,6 +1222,11 @@
             "node": "Validar Acceso Agencia",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Execute a SQL query3",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1481,11 +1270,6 @@
         ]
       ]
     },
-    "Enviar Email1": {
-      "main": [
-        []
-      ]
-    },
     "Execute a SQL query": {
       "main": [
         [
@@ -1502,17 +1286,6 @@
         [
           {
             "node": "Loop Over Items",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Generar Reporte1": {
-      "main": [
-        [
-          {
-            "node": "Enviar Email1",
             "type": "main",
             "index": 0
           }
@@ -1536,17 +1309,19 @@
             "node": "BuscarAgencia",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "BuscarAgencia1",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
     },
     "HTTP Request": {
       "main": [
+        [
+          {
+            "node": "Empresa sin contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Empresa sin contacto",
@@ -1662,13 +1437,87 @@
           }
         ]
       ]
+    },
+    "Habilitar en BD": {
+      "main": [
+        [
+          {
+            "node": "Loop Agencias",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query3": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items3": {
+      "main": [
+        [],
+        [
+          {
+            "node": "GetUser1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetUser1": {
+      "main": [
+        [
+          {
+            "node": "Existe en HS?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existe en HS?": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "c6df0c1a-8be0-42a8-8f0f-b567415d4a3b",
+  "versionId": "1cc897b7-cf69-4406-bd48-d923a4de30e2",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"

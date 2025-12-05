@@ -1,0 +1,237 @@
+{
+  "name": "Agencias mora",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -112,
+        -160
+      ],
+      "id": "c3a33422-2839-41e5-b51a-0d3fcc4b30ec",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        512,
+        -160
+      ],
+      "id": "84df28d4-2fd0-48b6-a02d-fbdea8ea06fb",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"codigo\",\n          \"operator\": \"EQ\",\n          \"value\": \"{{ $json.agencia }}\"\n        }\n      ]\n    }\n  ],\n  \"limit\": 1\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        -144
+      ],
+      "id": "664ef8db-a858-4351-81f0-e51cbd2046d7",
+      "name": "Obtener Agencia",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/companies/{{ $json.results[0].id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n\"mora_total\":{{ $('Loop Over Items').item.json.total_mora_calculado }},\n    \"porcentual_de_mora\":{{ $('Loop Over Items').item.json.porcentaje_mora_calculado }}\n  }\n}\n ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1216,
+        -160
+      ],
+      "id": "3539c665-e3b3-4447-82a3-5a0ee332219e",
+      "name": "onboarding_finalizado",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://intranet.decreditos.com/mora/info_mora.php?action=obtener_mora",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        112,
+        -160
+      ],
+      "id": "e8f05b5f-c121-44c9-b3fb-6d4214d505db",
+      "name": "Info_mora.php"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Recorremos los items de entrada (por si viene paginado)\nconst resultados = [];\nfor (const item of $input.all()) {\n  // Aquí está la clave: accedemos a \"data\" que es donde está la lista real\n  const listaAgencias = item.json.data;\n  if (listaAgencias && Array.isArray(listaAgencias)) {\n    // Recorremos cada agencia dentro de la lista \"data\"\n    const agenciasProcesadas = listaAgencias.map(agencia => {\n      // Calculamos mora total con exactamente 2 decimales\n      const moraTotalRaw = Number(agencia.total_importes_mora || 0);\n      const moraTotalFormateado = Number(moraTotalRaw.toFixed(2));\n      \n      // Calculamos porcentaje de mora sin decimales (redondeado)\n      const porcentajeMoraRaw = Number(agencia.porcentaje_total || 0);\n      const porcentajeMoraFormateado = Math.round(porcentajeMoraRaw);\n      \n      return {\n        json: {\n          // 1. La propiedad \"agencia\" (ID) que pediste\n          agencia: agencia.agencia,\n          // Mora total: número con 2 decimales (formato divisa)\n          total_mora_calculado: moraTotalFormateado,\n          // Porcentaje de mora: número entero sin decimales\n          porcentaje_mora_calculado: porcentajeMoraFormateado\n        }\n      };\n    });\n    resultados.push(...agenciasProcesadas);\n  }\n}\nreturn resultados;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        -160
+      ],
+      "id": "fe80f56a-a873-4b93-816e-4966ec7f388f",
+      "name": "Calcular Datos HubSpot"
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        -144
+      ],
+      "id": "2df775f2-e2bd-4ebf-abca-1d1e0524ec49",
+      "name": "Wait",
+      "webhookId": "e08aeb02-a3fb-4e4b-a355-f22c482470ec"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Info_mora.php",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Agencia": {
+      "main": [
+        [
+          {
+            "node": "onboarding_finalizado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "onboarding_finalizado": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Info_mora.php": {
+      "main": [
+        [
+          {
+            "node": "Calcular Datos HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular Datos HubSpot": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Obtener Agencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "dad3fd02-916f-4b40-b91a-8a39eff530e6",
+  "meta": {
+    "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
+  },
+  "id": "WiTAcXrX1MVKuhTu",
+  "tags": []
+}

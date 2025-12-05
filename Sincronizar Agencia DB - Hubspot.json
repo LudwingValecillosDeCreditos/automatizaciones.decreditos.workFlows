@@ -9,7 +9,7 @@
       "typeVersion": 2,
       "position": [
         -1376,
-        -128
+        -16
       ],
       "id": "05c6172a-0ff8-431d-8fda-e777cb9a2020",
       "name": "Preparar Datos para HubSpot"
@@ -28,8 +28,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1200,
-        -128
+        -1152,
+        -16
       ],
       "id": "0760fb25-48e0-4841-adb3-beccac5c7e92",
       "name": "Buscar Contactos Existentes",
@@ -42,13 +42,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const hubspotResponse = $input.item.json;\n// Aseguramos obtener los contactos originales correctamente\nconst contactosOriginales = $('Preparar Datos para HubSpot').item.json.contacts;\n\n// 1. Crear un mapa para buscar rápidamente el ID de HubSpot por email.\nconst idMap = new Map();\n\n// Validación de seguridad: Verificar que results existe y es un array\nif (hubspotResponse.results && Array.isArray(hubspotResponse.results)) {\n  hubspotResponse.results.forEach(contactoHubSpot => {\n    // Asegurarse de que las propiedades existen antes de setear\n    if (contactoHubSpot.properties && contactoHubSpot.properties.email) {\n      idMap.set(contactoHubSpot.properties.email, contactoHubSpot.id);\n    }\n  });\n}\n\n// 2. Procesar los contactos originales de la BD\nconst contactosParaProcesar = contactosOriginales.map(contactoBD => {\n  // SOLUCIÓN: Solo buscamos en el mapa. Si no está, es null.\n  // No intentamos forzar results[0] porque eso rompe el código si está vacío.\n  const hubspotId = idMap.get(contactoBD.email) || null;\n  \n  return {\n    ...contactoBD,\n    // 'id' contendrá el ID de HubSpot o null\n    id: hubspotId, \n  };\n});\n\n// 3. Devolver los objetos procesados como un array de items de n8n\nreturn contactosParaProcesar.map(c => ({ json: c}));"
+        "jsCode": "const hubspotResponse = $input.item.json;\nconst contactosOriginales = $('Preparar Datos para HubSpot').item.json.contacts;\n\n// 1. Crear el mapa con emails normalizados\nconst idMap = new Map();\n\nif (hubspotResponse.results && Array.isArray(hubspotResponse.results)) {\n  hubspotResponse.results.forEach(contactoHubSpot => {\n    if (contactoHubSpot.properties && contactoHubSpot.properties.email) {\n      // Normalizar a minúsculas al guardar\n      const emailNormalizado = contactoHubSpot.properties.email.toLowerCase();\n      idMap.set(emailNormalizado, contactoHubSpot.id);\n    }\n  });\n}\n\n// 2. Procesar contactos buscando con email normalizado\nconst contactosParaProcesar = contactosOriginales.map(contactoBD => {\n  // Normalizar a minúsculas al buscar\n  const emailNormalizado = contactoBD.email.toLowerCase();\n  const hubspotId = idMap.get(emailNormalizado) || null;\n  \n  return {\n    ...contactoBD,\n    id: hubspotId, \n  };\n});\n\n// 3. Retornar\nreturn contactosParaProcesar.map(c => ({ json: c }));"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1008,
-        -128
+        -928,
+        -16
       ],
       "id": "787a315c-bd46-4220-9e9f-d93cef847eb1",
       "name": "Procesar Respuesta HubSpot"
@@ -65,7 +65,7 @@
           "conditions": [
             {
               "id": "da083b8c-f52a-407d-80df-19eb24d7c7d2",
-              "leftValue": "={{ $('Buscar Contactos Existentes').item.json.results[0].id }}",
+              "leftValue": "={{ $json.id }}",
               "rightValue": 0,
               "operator": {
                 "type": "string",
@@ -81,8 +81,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -544,
-        -112
+        -480,
+        -208
       ],
       "id": "cf12803b-f394-41af-95e9-5f58f1ecd6a3",
       "name": "¿Contacto no Existe?"
@@ -101,8 +101,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -368,
-        -240
+        -256,
+        -144
       ],
       "id": "e91f523c-48e0-4c08-867c-a5c6f3172ec3",
       "name": "Crear Nuevo Contacto",
@@ -117,7 +117,7 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/{{ $('Buscar Contactos Existentes').item.json.results[0].id }}",
+        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/{{ $('Procesar Cada Contacto').item.json.id }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBearerAuth",
         "sendBody": true,
@@ -128,8 +128,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -368,
-        -64
+        -256,
+        64
       ],
       "id": "2fbc7027-4939-48e9-a7cc-f9967b3658b9",
       "name": "Actualizar Contacto Existente",
@@ -150,8 +150,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1568,
-        -128
+        -1600,
+        -16
       ],
       "id": "b57fcb5a-650a-4bee-b111-ca1ff521774c",
       "name": "Consultar contactos en BD",
@@ -171,8 +171,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1600,
-        176
+        -1376,
+        688
       ],
       "id": "9feedc1b-bb0b-41f3-bf01-a6031dc6d20c",
       "name": "Consultar Agencia en BD",
@@ -194,7 +194,7 @@
       "typeVersion": 2.1,
       "position": [
         -1824,
-        80
+        512
       ],
       "id": "fea58910-b0c2-48ab-bfcc-59f5606456d1",
       "name": "Recibir codigo",
@@ -214,8 +214,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -672,
-        208
+        -928,
+        688
       ],
       "id": "dbc345fa-f02c-4fa7-922b-efe432314c10",
       "name": "Obtener agencia",
@@ -241,8 +241,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -96,
-        144
+        -480,
+        496
       ],
       "id": "ed1dbd35-fe66-4fd5-90e9-56bd3ba4ed71",
       "name": "Actulizar agencia",
@@ -261,8 +261,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1136,
-        208
+        -1152,
+        688
       ],
       "id": "6ca32bd1-23d6-4ccd-ab06-ccb615ee3838",
       "name": "Normalizar datos"
@@ -295,8 +295,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -288,
-        208
+        -704,
+        592
       ],
       "id": "c2c16181-179d-4bfb-a82f-938f3fca4046",
       "name": "Existe la agencia?"
@@ -315,8 +315,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -96,
-        320
+        -480,
+        688
       ],
       "id": "a34ce4ee-03be-4699-b2d7-a9b9f154d0ea",
       "name": "Crear agencia",
@@ -337,8 +337,8 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        240,
-        -96
+        208,
+        368
       ],
       "id": "83030cf9-4f52-4602-9436-658ab75b623b",
       "name": "Merge"
@@ -352,8 +352,8 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -800,
-        -144
+        -704,
+        -16
       ],
       "id": "bc913373-f3a1-4386-a711-7ffbc5a6f319",
       "name": "Procesar Cada Contacto"
@@ -365,7 +365,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -368,
+        -480,
         -400
       ],
       "id": "d69ccd2f-9250-404e-879a-2a835a2ebb7f",
@@ -378,8 +378,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        464,
-        -96
+        448,
+        352
       ],
       "id": "525d2f5a-4bef-4375-90b4-5d553ba6b5b9",
       "name": "Armado del cuerpo de la peticion"
@@ -398,8 +398,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        688,
-        -96
+        672,
+        352
       ],
       "id": "46abb97a-2d98-4d06-8d32-72e71217cf65",
       "name": "Asociar contacto con empresas",
@@ -429,8 +429,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        -32,
-        -336
+        672,
+        -112
       ],
       "id": "a11f61c6-93dc-4deb-bd06-63a9b5f36c26",
       "name": "Notificar error",
@@ -441,8 +441,8 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        240,
-        128
+        -256,
+        592
       ],
       "id": "d8cf7f82-ccb1-4b0e-9a0a-57ac8e67eedb",
       "name": "Puente error 2"
@@ -465,8 +465,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        912,
-        -96
+        896,
+        352
       ],
       "id": "5076b885-79ee-442c-87f1-41ad1e718d62",
       "name": "Notificar error1",
@@ -490,8 +490,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        -400,
-        512
+        -704,
+        784
       ],
       "id": "373719e0-77fc-4af0-88dc-643c38c06ab8",
       "name": "Notificar error2",
@@ -525,8 +525,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        80,
-        416
+        -256,
+        880
       ],
       "id": "ba5a6755-ee36-40fc-98c8-2f83fd518648",
       "name": "¿Ya tiene permiso?"
@@ -540,8 +540,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        320,
-        400
+        -32,
+        880
       ],
       "id": "99dbc066-1cb3-4f3b-aa1b-d542c513f415",
       "name": "Insertar Permiso Faltante",
@@ -551,6 +551,126 @@
           "name": "n8n prod"
         }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4872f039-a3b8-4a4e-96ce-07f60c1010b0",
+              "leftValue": "={{ $json.error.message }}",
+              "rightValue": "Number isn't valid for country code",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -32,
+        176
+      ],
+      "id": "3ba1a591-1a11-45f1-9c0a-bbda65ca57fc",
+      "name": "Error phone?"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/{{ $('Procesar Cada Contacto').item.json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $json.email }}\",\n    \"activo\": \"{{ $json.disabled_at == null ? true : false}}\",\n    \"emailverificado\": \"{{ $json.emailverificado ? 'true' : 'false' }}\",\n    \"firstname\": \"{{ $json.first_name }}\",\n    \"lastname\": \"{{ $json.last_name }}\",\n    \"dni\": \"{{ $json.dni }}\",\n    \"genero\": \"{{ $json.gender === \"M\" ? \"Masculino\" : \"Femenino\"}}\",\n    \"usuario_rol_plataforma_agencies\": \"{{ $json.usuario_rol_plataforma_agencies ? 'user' : '' }}\",\n    \"usuario_rol_plataforma_insurance\": \"{{ $json.usuario_rol_plataforma_insurance ? 'user' : '' }}\",\n    \"cargo_sistema\": \"{{ $json.cargo_sistema }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        192,
+        176
+      ],
+      "id": "504d06cf-1b8c-4ce4-b842-b202dbadff61",
+      "name": "Actulizar",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4872f039-a3b8-4a4e-96ce-07f60c1010b0",
+              "leftValue": "={{ $json.error.message }}",
+              "rightValue": "Number isn't valid for country code",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        32,
+        -80
+      ],
+      "id": "776d247d-edda-4b03-8f0c-5eefe1248fed",
+      "name": "Error phone?1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $json.email }}\",\n    \"phone\": \"{{ $json.phone }}\",\n    \"activo\": \"{{ $json.disabled_at == null ? true : false}}\",\n    \"emailverificado\": \"{{ $json.emailverificado ? 'true' : 'false' }}\",\n    \"firstname\": \"{{ $json.first_name }}\",\n    \"lastname\": \"{{ $json.last_name }}\",\n    \"dni\": \"{{ $json.dni }}\",\n    \"genero\": \"{{ $json.gender === \"M\" ? \"Masculino\" : \"Femenino\"}}\",\n    \"usuario_rol_plataforma_agencies\": \"{{ $json.usuario_rol_plataforma_agencies ? 'user' : '' }}\",\n    \"usuario_rol_plataforma_insurance\": \"{{ $json.usuario_rol_plataforma_insurance ? 'user' : '' }}\",\n    \"cargo_sistema\": \"{{ $json.cargo_sistema }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        288,
+        -96
+      ],
+      "id": "9cad7259-9827-4e1d-940a-74a0c8cb3bbb",
+      "name": "Crear Nuevo Contacto1",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueRegularOutput"
     }
   ],
   "pinData": {},
@@ -617,7 +737,7 @@
         ],
         [
           {
-            "node": "Notificar error",
+            "node": "Error phone?1",
             "type": "main",
             "index": 0
           }
@@ -635,12 +755,7 @@
         ],
         [
           {
-            "node": "Notificar error",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Procesar Cada Contacto",
+            "node": "Error phone?",
             "type": "main",
             "index": 0
           }
@@ -846,13 +961,72 @@
           }
         ]
       ]
+    },
+    "Error phone?": {
+      "main": [
+        [
+          {
+            "node": "Actulizar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Procesar Cada Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actulizar": {
+      "main": [
+        [
+          {
+            "node": "Procesar Cada Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error phone?1": {
+      "main": [
+        [
+          {
+            "node": "Crear Nuevo Contacto1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Procesar Cada Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear Nuevo Contacto1": {
+      "main": [
+        [
+          {
+            "node": "Procesar Cada Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "6da47578-4cf5-48ea-b5b7-553e5ff71e70",
+  "versionId": "94c5a0ad-cc51-4636-9469-90c84c96621b",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"

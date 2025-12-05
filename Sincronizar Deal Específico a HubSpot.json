@@ -1,0 +1,640 @@
+{
+  "name": "Sincronizar Deal Específico a HubSpot",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "syncDeal",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1712,
+        288
+      ],
+      "id": "d5ca3b1b-a6c3-448d-a677-4378e693da1a",
+      "name": "Recibir Operación",
+      "webhookId": "sync-deal-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT \n    cre.codigo as operacion,\n    cre.codigopre as pre_operacion,\n    mod1.nombre as vehiculo,\n    veh.anio,\n    cre.capital as capital_aprobado,\n    cre.plazo as plazo_aprobado,\n    pre.capital as capital_solicitado,\n    pre.plazo as plazo_solicitado,\n    cre.agencia as codigo_agencia,\n    cre.cliente as codigo_cliente,\n    cli.nrodoc as dni,\n    cli.apellido,\n    cli.nombres as nombre,\n    cli.emailparticular as email,\n    cli.celular as telefono_celular,\n    cre.FechaResActual as fecha_aprobado,\n    prod.nombre as NomProducto\nFROM prendarios.Creditos cre\nLEFT JOIN prendarios.Vehiculos veh ON cre.vehiculo=veh.codigo\nLEFT JOIN prendarios.Modelos mod1 ON veh.modelo=mod1.codigo\nLEFT JOIN prendarios.PreOperaciones pre ON cre.codigopre=pre.codigo\nLEFT JOIN prendarios.Clientes cli ON cre.cliente=cli.codigo\nLEFT JOIN prendarios.Productos prod ON cre.producto=prod.codigo\nWHERE cre.codigo = '{{ $json.body.operacion }}'\nLIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1504,
+        288
+      ],
+      "id": "a736781e-d379-41a5-92ef-ce3b373e2145",
+      "name": "Consultar Operación en BD",
+      "credentials": {
+        "mySql": {
+          "id": "ffbFNZ6899bQTg56",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========== NORMALIZACIÓN DE DATOS ==========\nconst item = $input.first().json;\n\n// Función para normalizar teléfono\nfunction normalizePhone(phone) {\n  if (!phone || phone.trim() === '') return null;\n  \n  // 1. Aislar parte después del primer espacio\n  const parts = phone.split(' ');\n  const numberAfterSpace = parts.length > 1 ? parts.slice(1).join('') : parts[0];\n  \n  // 2. Limpiar caracteres no numéricos excepto +\n  let cleaned = numberAfterSpace.replace(/[^0-9+]/g, '');\n  \n  // 3. Eliminar prefijos conocidos\n  if (cleaned.startsWith('+54')) {\n    cleaned = cleaned.substring(3);\n  } else if (cleaned.startsWith('54')) {\n    cleaned = cleaned.substring(2);\n  }\n  \n  // Eliminar ceros iniciales\n  cleaned = cleaned.replace(/^0+/, '');\n  \n  // 4. Manejo de prefijo 9 para móviles\n  if (cleaned.startsWith('9')) {\n    cleaned = cleaned.substring(1);\n  }\n  \n  // 5. Buscar y eliminar prefijo '15' de celular local\n  if (cleaned.startsWith('15')) {\n    cleaned = cleaned.substring(2);\n  }\n  \n  // Validaciones de longitud\n  if (cleaned.length < 6 || cleaned.length > 12) {\n    return null;\n  }\n  \n  // 6. Reconstruir con formato internacional +549...\n  const formatted = '+549' + cleaned;\n  \n  // Validación final de longitud\n  if (formatted.length < 11 || formatted.length > 15) {\n    return null;\n  }\n  \n  return formatted;\n}\n\n// Función para validar y corregir email\nfunction validateAndFixEmail(email) {\n  if (!email || email.trim() === '') return null;\n  \n  email = email.trim().toLowerCase();\n  \n  // Correcciones de dominios comunes\n  const domainReplacements = {\n    '@gmai.com': '@gmail.com',\n    '@gmial.com': '@gmail.com',\n    '@gmil.com': '@gmail.com',\n    '@gmal.com': '@gmail.com',\n    '@hotmial.com': '@hotmail.com',\n    '@hotmal.com': '@hotmail.com',\n    '@homail.com': '@hotmail.com',\n    '@yahou.com': '@yahoo.com',\n    '@yaho.com': '@yahoo.com'\n  };\n  \n  // Aplicar correcciones de dominios\n  for (const [bad, good] of Object.entries(domainReplacements)) {\n    email = email.replace(bad, good);\n  }\n  \n  // Correcciones de extensiones\n  const extensionFixes = {\n    '.xom': '.com',\n    '.con': '.com',\n    '.cpm': '.com',\n    '.ocm': '.com',\n    '.co.om': '.com',\n    '.comm': '.com',\n    '.comar': '.com'\n  };\n  \n  // Aplicar corrección de extensiones\n  for (const [badExt, goodExt] of Object.entries(extensionFixes)) {\n    if (email.endsWith(badExt)) {\n      email = email.substring(0, email.length - badExt.length) + goodExt;\n      break;\n    }\n  }\n  \n  // Validación básica\n  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n  if (!emailRegex.test(email)) {\n    return null;\n  }\n  \n  return email;\n}\n\n// Procesar datos\nconst originalEmail = item.email || '';\nconst correctedEmail = validateAndFixEmail(originalEmail);\nconst phone = normalizePhone(item.telefono_celular || '');\n\nconst normalized = {\n  operacion: item.operacion || '',\n  pre_operacion: item.pre_operacion || '',\n  vehiculo: item.vehiculo || '',\n  anio: item.anio || '',\n  capital_aprobado: item.capital_aprobado || '0',\n  plazo_aprobado: item.plazo_aprobado || '0',\n  capital_solicitado: item.capital_solicitado || '0',\n  plazo_solicitado: item.plazo_solicitado || '0',\n  codigo_agencia: item.codigo_agencia || '',\n  dni: item.dni || '',\n  apellido: item.apellido || '',\n  nombre: item.nombre || '',\n  email: correctedEmail,\n  email_original: originalEmail,\n  telefono_celular: phone,\n  telefono_original: item.telefono_celular || '',\n  fecha_aprobado: item.fecha_aprobado || '',\n  NomProducto: item.NomProducto || '',\n  email_corregido: correctedEmail !== originalEmail.toLowerCase(),\n  telefono_normalizado: phone !== null\n};\n\nreturn [{ json: normalized }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        288
+      ],
+      "id": "4d203862-1545-4640-ac07-7817229f58ea",
+      "name": "Normalizar Datos"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"email\",\n          \"operator\": \"EQ\",\n          \"value\": \"{{ $json.email }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\"email\", \"dni\", \"firstname\", \"lastname\", \"mobilephone\"],\n  \"limit\": 10,\n  \"archived\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1056,
+        288
+      ],
+      "id": "58a8f8ca-efa2-491d-9d7c-bc8b35428c53",
+      "name": "Buscar Contacto por Email",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "contacto-existe",
+              "leftValue": "={{ $json.total }}",
+              "rightValue": "={{ 0 }}",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -832,
+        288
+      ],
+      "id": "b48dafcc-6f5f-49b5-99b0-874ddaf2dd07",
+      "name": "¿Contacto Existe?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $('Normalizar Datos').item.json.email }}\",\n    \"dni\": \"{{ $('Normalizar Datos').item.json.dni }}\",\n    \"firstname\": \"{{ $('Normalizar Datos').item.json.nombre }}\",\n    \"lastname\": \"{{ $('Normalizar Datos').item.json.apellido }}\",\n    \"mobilephone\": \"{{ $('Normalizar Datos').item.json.telefono_celular }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -624,
+        192
+      ],
+      "id": "0cf94170-3dbe-48a6-a028-9be1c1c8bbb1",
+      "name": "Crear Contacto",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "error-telefono",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "es-error-telefono",
+              "leftValue": "={{ JSON.stringify($json.error) }}",
+              "rightValue": "INVALID_PHONE_NUMBER",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -416,
+        208
+      ],
+      "id": "88d81d91-2d1c-4482-9a4c-aed998d9bbaa",
+      "name": "¿Error de Teléfono?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $('Normalizar Datos').item.json.email }}\",\n    \"dni\": \"{{ $('Normalizar Datos').item.json.dni }}\",\n    \"firstname\": \"{{ $('Normalizar Datos').item.json.nombre }}\",\n    \"lastname\": \"{{ $('Normalizar Datos').item.json.apellido }}\",\n    \"mobilephone\": null\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -176,
+        80
+      ],
+      "id": "7331e5c7-e18a-490e-b306-89196b7d326d",
+      "name": "Reintentar Sin Teléfono",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener datos normalizados\n// Usamos .first() que es más seguro en versiones recientes\nconst normData = $('Normalizar Datos').first().json;\n\nlet contactId = null;\n\n// 1. Intentar obtener de contacto creado\n// Usamos try/catch porque si el contacto ya existía, este nodo no se ejecutó\ntry {\n  if ($('Crear Contacto').first().json.id) {\n    contactId = $('Crear Contacto').first().json.id;\n  }\n} catch (error) {\n  // Si el nodo \"Crear Contacto\" no se ejecutó, no hacemos nada y pasamos al siguiente bloque\n}\n\n// 2. Si aún no tenemos ID, intentar obtener de reintento sin teléfono\nif (!contactId) {\n  try {\n    if ($('Reintentar Sin Teléfono').first().json.id) {\n      contactId = $('Reintentar Sin Teléfono').first().json.id;\n    }\n  } catch (error) {\n    // Ignorar si este nodo no se ejecutó\n  }\n}\n\n// 3. Si aún no tenemos ID, intentar obtener de contacto existente (Búsqueda)\nif (!contactId) {\n  try {\n    const searchResults = $('Buscar Contacto por Email').first().json.results;\n    if (searchResults && searchResults.length > 0) {\n      contactId = searchResults[0].id;\n    }\n  } catch (error) {\n    // Ignorar errores de lectura\n  }\n}\n\nreturn [{\n  json: {\n    ...normData,\n    contact_id: contactId\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        288
+      ],
+      "id": "d4a6e719-1eb0-41de-b5ca-c968c6dfdc00",
+      "name": "Consolidar Contacto ID"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"codigo\",\n          \"operator\": \"EQ\",\n          \"value\": \"{{ $json.codigo_agencia }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\"name\", \"codigo\"],\n  \"limit\": 5,\n  \"archived\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        272,
+        288
+      ],
+      "id": "1bbd313f-a708-42d7-91f6-17c134e6bf89",
+      "name": "Buscar Agencia",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/deals/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"operation\",\n          \"operator\": \"EQ\",\n          \"value\": \"{{ $('Recibir Operación').item.json.body.operacion }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\"operation\", \"dealname\", \"dealstage\"],\n  \"limit\": 10,\n  \"archived\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        496,
+        288
+      ],
+      "id": "7d368f6a-3b0c-468e-b052-b0826c7a2779",
+      "name": "Buscar Deal",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "deal-existe",
+              "leftValue": "={{ $json.total }}",
+              "rightValue": "={{ 0 }}",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        704,
+        288
+      ],
+      "id": "edfadf17-7af5-4529-b1c7-47387b7555d1",
+      "name": "¿Deal Existe?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/deals",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"dealname\": \"{{ $('Consolidar Contacto ID').item.json.nombre }} {{ $('Consolidar Contacto ID').item.json.apellido }}, DNI: {{ $('Consolidar Contacto ID').item.json.dni }}\",\n    \"operation\": \"{{ $('Consolidar Contacto ID').item.json.operacion }}\",\n    \"preoperacion\": \"{{ $('Consolidar Contacto ID').item.json.pre_operacion }}\",\n    \"dealstage\": \"liquidated\",\n    \"vehicle\": \"{{ $('Consolidar Contacto ID').item.json.vehiculo }}\",\n    \"year\": \"{{ $('Consolidar Contacto ID').item.json.anio }}\",\n    \"amountrequested\": \"{{ $('Consolidar Contacto ID').item.json.capital_solicitado }}\",\n    \"amount_aprubed\": \"{{ $('Consolidar Contacto ID').item.json.capital_aprobado }}\",\n    \"quotes_requested\": \"{{ $('Consolidar Contacto ID').item.json.plazo_solicitado }}\",\n    \"quotes_aprubed\": \"{{ $('Consolidar Contacto ID').item.json.plazo_aprobado }}\",\n    \"date_of_approved\": \"{{ $('Consolidar Contacto ID').item.json.fecha_aprobado }}\",\n    \"product_approved\": \"{{ $('Consolidar Contacto ID').item.json.NomProducto }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        928,
+        192
+      ],
+      "id": "b88acd04-5760-4907-bbec-b63e59134ba4",
+      "name": "Crear Deal",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Consolidar Deal ID\nconst normData = $('Consolidar Contacto ID').item.json;\nlet dealId = null;\n\n// 1. Intentar obtener de deal creado (Envuelto en Try/Catch porque este nodo es opcional)\ntry {\n  // Usamos .first() en lugar de .item (práctica recomendada en versiones nuevas)\n  if ($('Crear Deal').first().json.id) {\n    dealId = $('Crear Deal').first().json.id;\n  }\n} catch (error) {\n  // Si el nodo no se ejecutó, entramos aquí y no hacemos nada.\n  // El código continuará a la siguiente validación.\n}\n\n// 2. Si no se encontró arriba, intentar obtener de deal existente (Búsqueda)\nif (!dealId) {\n  try {\n    const searchResults = $('Buscar Deal').first().json.results;\n    if (searchResults && searchResults.length > 0) {\n      dealId = searchResults[0].id;\n    }\n  } catch (error) {\n    // Ignorar si hay error leyendo el nodo de búsqueda\n  }\n}\n\n// Obtener agency_id\nlet agencyId = null;\ntry {\n  const agencyResults = $('Buscar Agencia').first().json.results;\n  if (agencyResults && agencyResults.length > 0) {\n    agencyId = agencyResults[0].id;\n  }\n} catch (error) {\n  // Ignorar errores de agencia\n}\n\nreturn [{\n  json: {\n    ...normData,\n    deal_id: dealId,\n    agency_id: agencyId\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        288
+      ],
+      "id": "80b1bde8-996d-462a-9f6b-5c8848bca45e",
+      "name": "Consolidar Deal ID"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/associations/deals/contacts/batch/create",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"inputs\": [\n    {\n      \"from\": {\"id\": \"{{ $json.deal_id }}\"},\n      \"to\": {\"id\": \"{{ $json.contact_id }}\"},\n      \"type\": \"deal_to_contact\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1376,
+        192
+      ],
+      "id": "3b48375e-e13d-4146-927f-a1cc80a63373",
+      "name": "Asociar Deal-Contacto",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/associations/deals/companies/batch/create",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"inputs\": [\n    {\n      \"from\": {\"id\": \"{{ $json.deal_id }}\"},\n      \"to\": {\"id\": \"{{ $json.agency_id }}\"},\n      \"type\": \"deal_to_company\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1376,
+        384
+      ],
+      "id": "02f58eaa-232d-471c-bd0e-45e0dce515dd",
+      "name": "Asociar Deal-Agencia",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"operacion\": \"{{ $('Consolidar Deal ID').item.json.operacion }}\",\n  \"contact_id\": \"{{ $('Consolidar Deal ID').item.json.contact_id }}\",\n  \"deal_id\": \"{{ $('Consolidar Deal ID').item.json.deal_id }}\",\n  \"agency_id\": \"{{ $('Consolidar Deal ID').item.json.agency_id }}\",\n  \"email_corregido\": {{ $('Consolidar Deal ID').item.json.email_corregido }},\n  \"email_original\": \"{{ $('Consolidar Deal ID').item.json.email_original }}\",\n  \"email_final\": \"{{ $('Consolidar Deal ID').item.json.email }}\",\n  \"telefono_normalizado\": {{ $('Consolidar Deal ID').item.json.telefono_normalizado }},\n  \"telefono_original\": \"{{ $('Consolidar Deal ID').item.json.telefono_original }}\",\n  \"telefono_final\": \"{{ $('Consolidar Deal ID').item.json.telefono_celular }}\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1584,
+        288
+      ],
+      "id": "6e44b36d-2b93-4126-b6f4-dd742910b3df",
+      "name": "Responder Resultado"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Recibir Operación": {
+      "main": [
+        [
+          {
+            "node": "Consultar Operación en BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Operación en BD": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Datos": {
+      "main": [
+        [
+          {
+            "node": "Buscar Contacto por Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Contacto por Email": {
+      "main": [
+        [
+          {
+            "node": "¿Contacto Existe?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Contacto Existe?": {
+      "main": [
+        [
+          {
+            "node": "Crear Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Consolidar Contacto ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear Contacto": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Contacto ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Error de Teléfono?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Error de Teléfono?": {
+      "main": [
+        [
+          {
+            "node": "Reintentar Sin Teléfono",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Consolidar Contacto ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reintentar Sin Teléfono": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Contacto ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidar Contacto ID": {
+      "main": [
+        [
+          {
+            "node": "Buscar Agencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Agencia": {
+      "main": [
+        [
+          {
+            "node": "Buscar Deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Deal": {
+      "main": [
+        [
+          {
+            "node": "¿Deal Existe?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Deal Existe?": {
+      "main": [
+        [
+          {
+            "node": "Crear Deal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Consolidar Deal ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear Deal": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Deal ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidar Deal ID": {
+      "main": [
+        [
+          {
+            "node": "Asociar Deal-Contacto",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Asociar Deal-Agencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Asociar Deal-Contacto": {
+      "main": [
+        [
+          {
+            "node": "Responder Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Asociar Deal-Agencia": {
+      "main": [
+        [
+          {
+            "node": "Responder Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e1d74262-c60d-4694-b25e-a373a7931ff2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
+  },
+  "id": "oYHZ3nrgweC3aqhi",
+  "tags": []
+}
