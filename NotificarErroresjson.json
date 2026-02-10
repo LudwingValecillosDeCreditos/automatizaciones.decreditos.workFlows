@@ -1,0 +1,90 @@
+{
+  "name": "NotificarErrores",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -192,
+        -160
+      ],
+      "id": "45d6b607-89e7-4eb3-b546-33a9092d4419",
+      "name": "Recibir error"
+    },
+    {
+      "parameters": {
+        "sendTo": "lvalecillos@decreditos.com",
+        "subject": "Error en actualizar PRUEBA",
+        "message": "={{ $json.errorData }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        240,
+        -160
+      ],
+      "id": "42824b85-645c-45c0-91e2-21529a831a8a",
+      "name": "Send a message",
+      "webhookId": "50c2520a-9cfd-4791-a545-7a7ae5a654f6",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "MUlkvcs3buRmsacV",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 📌 Este nodo recibe el objeto de error y arma un cuerpo de correo legible\nconst input = $json;\n\n// Función para formatear cada error\nfunction formatError(item) {\n  try {\n    const msg = item.message || 'No message';\n    const err = item.error || {};\n    const errName = err.name || 'UnknownError';\n    const level = err.level || 'UnknownLevel';\n    const description = err.description || 'No description';\n    const nodeName = err.node?.name || 'Unknown Node';\n    const timestamp = err.timestamp ? new Date(err.timestamp).toLocaleString() : 'No timestamp';\n    \n    return `🚨 Error capturado:\n- Mensaje: ${msg}\n- Error: ${errName} (${level})\n- Descripción: ${description}\n- Nodo: ${nodeName}\n- Timestamp: ${timestamp}\n---------------------------`;\n  } catch (e) {\n    // Si algo falla, devolvemos el objeto crudo como string\n    return `Error al formatear: ${JSON.stringify(item, null, 2)}`;\n  }\n}\n\n// Aseguramos que siempre sea un array\nconst errorsArray = Array.isArray(input) ? input : [input];\n\n// Construimos el cuerpo del correo\nconst emailBody = errorsArray.map(formatError).join('\\n\\n');\n\nreturn [\n  {\n    json: {\n      errorData: emailBody\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        -160
+      ],
+      "id": "ef94e6b7-f5e5-442e-85ff-3933a0e8179d",
+      "name": "Armar correo"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Recibir error": {
+      "main": [
+        [
+          {
+            "node": "Armar correo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar correo": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "28bb639f-98a7-4666-bef2-086700c70b2c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
+  },
+  "id": "txNy9ygy6bBaVJbV",
+  "tags": []
+}

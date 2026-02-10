@@ -6,7 +6,8 @@
         "rule": {
           "interval": [
             {
-              "triggerAtHour": 9
+              "triggerAtHour": 8,
+              "triggerAtMinute": 50
             }
           ]
         }
@@ -62,33 +63,6 @@
     },
     {
       "parameters": {
-        "method": "PATCH",
-        "url": "=https://api.hubapi.com/crm/v3/objects/companies/{{ $json.results[0].id }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpBearerAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"properties\": {\n\"mora_total\":{{ $('Loop Over Items').item.json.total_mora_calculado }},\n    \"porcentual_de_mora\":{{ $('Loop Over Items').item.json.porcentaje_mora_calculado }}\n  }\n}\n ",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1216,
-        -160
-      ],
-      "id": "3539c665-e3b3-4447-82a3-5a0ee332219e",
-      "name": "onboarding_finalizado",
-      "credentials": {
-        "httpBearerAuth": {
-          "id": "gsNQ34ai7rHgzAqG",
-          "name": "TokenRobert"
-        }
-      },
-      "onError": "continueErrorOutput"
-    },
-    {
-      "parameters": {
         "url": "https://intranet.decreditos.com/mora/info_mora.php?action=obtener_mora",
         "options": {}
       },
@@ -127,6 +101,46 @@
       "id": "2df775f2-e2bd-4ebf-abca-1d1e0524ec49",
       "name": "Wait",
       "webhookId": "e08aeb02-a3fb-4e4b-a355-f22c482470ec"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/companies/{{ $json.results[0].id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n\"mora_total\":{{ $('Loop Over Items').item.json.total_mora_calculado }},\n    \"porcentual_de_mora\":{{ $('Loop Over Items').item.json.porcentaje_mora_calculado }}\n  }\n}\n ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1216,
+        -160
+      ],
+      "id": "3539c665-e3b3-4447-82a3-5a0ee332219e",
+      "name": "Actualizar mora",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "content": "## Ingresa la cantidad de mora en las agencias"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -32,
+        -400
+      ],
+      "typeVersion": 1,
+      "id": "567b2432-f2e1-48d0-bee9-01fd50820338",
+      "name": "Sticky Note"
     }
   ],
   "pinData": {},
@@ -158,25 +172,7 @@
       "main": [
         [
           {
-            "node": "onboarding_finalizado",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Loop Over Items",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "onboarding_finalizado": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Items",
+            "node": "Actualizar mora",
             "type": "main",
             "index": 0
           }
@@ -222,13 +218,31 @@
           }
         ]
       ]
+    },
+    "Actualizar mora": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "dad3fd02-916f-4b40-b91a-8a39eff530e6",
+  "versionId": "f9d6068a-4bd4-46c8-a705-2efffc97208a",
   "meta": {
     "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
   },

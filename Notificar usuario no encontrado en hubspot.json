@@ -6,7 +6,8 @@
         "rule": {
           "interval": [
             {
-              "field": "hours"
+              "field": "hours",
+              "hoursInterval": 3
             }
           ]
         }
@@ -19,27 +20,6 @@
       ],
       "id": "cc55b6c8-7aaa-469b-b464-fc4654841b31",
       "name": "Cada 30 minutos"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT \n  v.id_usuario,\n  v.email_usuario,\n  SUM(CASE WHEN v.estado_proceso = 'error_request' THEN 1 ELSE 0 END) AS total_errores,\n  MAX(CASE WHEN v.estado_proceso = 'error_request' THEN v.fecha_cambio END) AS ultimo_error,\n  MIN(CASE WHEN v.estado_proceso = 'error_request' THEN v.fecha_cambio END) AS primer_error,\n  CASE \n    WHEN SUM(CASE WHEN v.estado_proceso = 'error_request' THEN 1 ELSE 0 END) > 4 THEN 1\n    ELSE 0\n  END AS supera_limite\nFROM validaciones_n8n v\nWHERE v.fecha_cambio >= NOW() - INTERVAL 1 DAY\nGROUP BY v.id_usuario, v.email_usuario\nORDER BY total_errores DESC;\n",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.5,
-      "position": [
-        -1600,
-        208
-      ],
-      "id": "ace48df0-5bdf-4475-b240-2a431b809150",
-      "name": "Query Usuarios con +4 Errores",
-      "credentials": {
-        "mySql": {
-          "id": "uypzAlinn7HdOqoC",
-          "name": "n8n prod"
-        }
-      }
     },
     {
       "parameters": {
@@ -116,7 +96,7 @@
     },
     {
       "parameters": {
-        "sendTo": "lvalecillos@decreditos.com",
+        "sendTo": "lvalecillos@decreditos.com, lmartinez@decretios.com",
         "subject": "Nuevo usuario sin crear en husbpot",
         "message": "=Usuario con mas de 4 intentos de actualización en Hubspot:\nid usuario: {{ $json.id_usuario }}\nCorreo: {{ $json.email_usuario }}",
         "options": {}
@@ -136,6 +116,27 @@
           "name": "Gmail account"
         }
       }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  v.id_usuario,\n  v.email_usuario,\n  SUM(CASE WHEN v.estado_proceso = 'error_request' THEN 1 ELSE 0 END) AS total_errores,\n  MAX(CASE WHEN v.estado_proceso = 'error_request' THEN v.fecha_cambio END) AS ultimo_error,\n  MIN(CASE WHEN v.estado_proceso = 'error_request' THEN v.fecha_cambio END) AS primer_error,\n  CASE \n    WHEN SUM(CASE WHEN v.estado_proceso = 'error_request' THEN 1 ELSE 0 END) > 4 THEN 1\n    ELSE 0\n  END AS supera_limite\nFROM validaciones_n8n v\nWHERE v.fecha_cambio >= NOW() - INTERVAL 1 DAY\nGROUP BY v.id_usuario, v.email_usuario\nORDER BY total_errores DESC;\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1600,
+        208
+      ],
+      "id": "ace48df0-5bdf-4475-b240-2a431b809150",
+      "name": "Obtener registros fallidos",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -144,18 +145,7 @@
       "main": [
         [
           {
-            "node": "Query Usuarios con +4 Errores",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Query Usuarios con +4 Errores": {
-      "main": [
-        [
-          {
-            "node": "Loop Usuarios con Errores",
+            "node": "Obtener registros fallidos",
             "type": "main",
             "index": 0
           }
@@ -207,13 +197,24 @@
           }
         ]
       ]
+    },
+    "Obtener registros fallidos": {
+      "main": [
+        [
+          {
+            "node": "Loop Usuarios con Errores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "active": true,
+  "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "08c82a24-17ce-4428-84d7-eb9dd5367b19",
+  "versionId": "fe89a255-b560-4ed6-9106-4122147e520c",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"

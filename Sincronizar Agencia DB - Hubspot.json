@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "jsCode": "const data = items.map(item => item.json);\n\nlet normalized;\n\nif (Array.isArray(data) && Array.isArray(data[0])) {\n  normalized = data[0];\n}\nelse if (Array.isArray(data)) {\n  normalized = data;\n}\nelse {\n  normalized = [data];\n}\n\nfunction normalizePhone(phone) {\n  if (!phone) return null;\n\n  // 1. Aislar la parte del número después del primer espacio (si existe)\n  const parts = phone.split(' ', 2);\n  const numberAfterSpace = parts.length > 1 ? parts[1] : parts[0];\n  let cleaned = numberAfterSpace.replace(/\\D/g, ''); \n\n  // 2. Limpieza inicial de prefijos\n  if (cleaned.startsWith('54')) {\n    cleaned = cleaned.substring(2);\n  }\n  if (cleaned.startsWith('0') || cleaned.startsWith('9')) {\n    cleaned = cleaned.substring(1);\n  }\n  \n  // 3. Buscar y eliminar el prefijo de celular local '15'\n  // Solo si el número tiene la longitud típica de un número con 15 (10-12 dígitos)\n  let numberBase = cleaned;\n\n  // Intentamos eliminar el '15' si está al inicio del número base\n  if (numberBase.length >= 10 && numberBase.startsWith('15')) {\n    // Si empieza con 15, lo quitamos\n    numberBase = numberBase.substring(2);\n  } else {\n    // Si no lo tiene o es muy corto, tomamos el número tal cual.\n    // Si es demasiado largo, tomamos los últimos 8 o 10 dígitos.\n    if (numberBase.length > 10) {\n      numberBase = numberBase.substring(numberBase.length - 10);\n    }\n  }\n  \n  // 4. Intentar forzar el formato que SÍ te funcionó (incluyendo el 9 y el 11)\n  \n  // Si numberBase es el número de 8 dígitos (ej: 31615272), le anteponemos el 11\n  if (numberBase.length >= 8 && numberBase.length <= 10) {\n    // Asegurar que el código de área sea '11' si la longitud lo permite\n    if (numberBase.length !== 10 || !numberBase.startsWith('11')) {\n      // Tomamos los últimos 8 dígitos y forzamos el 11\n      const finalSubscriberNumber = numberBase.substring(numberBase.length - 8);\n      return `+54911${finalSubscriberNumber}`;\n    }\n  }\n\n  // Fallback: si no pudimos normalizar, forzamos +549[Número Limpio]\n  return `+549${numberBase}`;\n}\n\nnormalized.forEach(contact => {\n  contact.phone = normalizePhone(contact.phone);\n});\n\nconst emails = normalized\n  .map(item => item.email)\n  .filter(email => !!email);\n\nreturn [{ json: { emails, contacts: normalized } }];"
+        "jsCode": "const data = items.map(item => item.json);\nlet normalized;\nif (Array.isArray(data) && Array.isArray(data[0])) {\n  normalized = data[0];\n}\nelse if (Array.isArray(data)) {\n  normalized = data;\n}\nelse {\n  normalized = [data];\n}\n\nfunction normalizePhone(phone) {\n  if (!phone) return null;\n  \n  // Convertir a string y limpiar espacios/guiones/paréntesis\n  let cleaned = String(phone).replace(/[\\s\\-()]/g, '');\n  \n  // Remover caracteres no numéricos excepto el '+' inicial\n  const hasPlus = cleaned.startsWith('+');\n  cleaned = cleaned.replace(/\\D/g, '');\n  \n  // 1. Remover prefijo internacional +54 o 54\n  if (cleaned.startsWith('54')) {\n    cleaned = cleaned.substring(2);\n  }\n  \n  // 2. Remover el 0 de discado nacional (DDN)\n  if (cleaned.startsWith('0')) {\n    cleaned = cleaned.substring(1);\n  }\n  \n  // 3. Identificar código de área y número\n  let areaCode = '';\n  let localNumber = '';\n  \n  // Códigos de área comunes en Argentina:\n  // - 11: Buenos Aires (2 dígitos) → números de 8 dígitos\n  // - 3XX: Resto del país (3 dígitos) → números de 7 dígitos\n  // - 2XX: Algunas provincias (3 dígitos) → números de 7 dígitos\n  // - 4 dígitos en zonas rurales\n  \n  if (cleaned.startsWith('11')) {\n    // Buenos Aires: código 11 + 8 dígitos\n    areaCode = '11';\n    localNumber = cleaned.substring(2);\n    \n    // Remover el 15 si está presente (prefijo de celular)\n    if (localNumber.startsWith('15')) {\n      localNumber = localNumber.substring(2);\n    }\n    \n    // Validar que tenga 8 dígitos\n    if (localNumber.length > 8) {\n      localNumber = localNumber.substring(localNumber.length - 8);\n    }\n    \n  } else if (cleaned.startsWith('2') || cleaned.startsWith('3')) {\n    // Resto del país: código de 3 dígitos + 7 dígitos\n    areaCode = cleaned.substring(0, 3);\n    localNumber = cleaned.substring(3);\n    \n    // Remover el 15 si está presente\n    if (localNumber.startsWith('15')) {\n      localNumber = localNumber.substring(2);\n    }\n    \n    // Validar que tenga 7 dígitos\n    if (localNumber.length > 7) {\n      localNumber = localNumber.substring(localNumber.length - 7);\n    }\n    \n  } else {\n    // Caso genérico o número sin código de área claro\n    // Intentar extraer últimos 7-8 dígitos\n    if (cleaned.startsWith('15')) {\n      cleaned = cleaned.substring(2);\n    }\n    \n    if (cleaned.length >= 10) {\n      // Asumir que tiene código de área incluido\n      areaCode = cleaned.substring(0, cleaned.length - 7);\n      localNumber = cleaned.substring(cleaned.length - 7);\n    } else {\n      // Número sin código de área o incompleto\n      return null;\n    }\n  }\n  \n  // 4. Validar longitudes\n  if (areaCode.length < 2 || areaCode.length > 4) {\n    return null;\n  }\n  \n  if (localNumber.length < 6 || localNumber.length > 8) {\n    return null;\n  }\n  \n  // 5. Formato final HubSpot: +54 9 [área] [número]\n  // El \"9\" indica que es un celular en Argentina\n  return `+549${areaCode}${localNumber}`;\n}\n\nnormalized.forEach(contact => {\n  contact.phone = normalizePhone(contact.phone);\n});\n\nconst emails = normalized\n  .map(item => item.email)\n  .filter(email => !!email);\n\nreturn [{ json: { emails, contacts: normalized } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -95,7 +95,7 @@
         "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $json.email }}\",\n    \"phone\": \"{{ $json.phone }}\",\n    \"activo\": \"{{ $json.disabled_at == null ? true : false}}\",\n    \"emailverificado\": \"{{ $json.emailverificado ? 'true' : 'false' }}\",\n    \"firstname\": \"{{ $json.first_name }}\",\n    \"lastname\": \"{{ $json.last_name }}\",\n    \"dni\": \"{{ $json.dni }}\",\n    \"genero\": \"{{ $json.gender === \"M\" ? \"Masculino\" : \"Femenino\"}}\",\n    \"usuario_rol_plataforma_agencies\": \"{{ $json.usuario_rol_plataforma_agencies ? 'user' : '' }}\",\n    \"usuario_rol_plataforma_insurance\": \"{{ $json.usuario_rol_plataforma_insurance ? 'user' : '' }}\",\n    \"cargo_sistema\": \"{{ $json.cargo_sistema }}\"\n  }\n}",
+        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $json.email }}\",\n    \"phone\": \"{{ $json.phone }}\",\n    \"activo\": \"{{ $json.disabled_at == null ? true : false}}\",\n    \"emailverificado\": \"{{ $json.emailverificado ? 'true' : 'false' }}\",\n\"telefono_validado\": \"{{ $json.phoneverificado ? 'true' : 'false' }}\",\n\"identidad_validada\": \"{{ $json.identity_confirmed_at ? 'true' : 'false' }}\",\n    \"firstname\": \"{{ $json.first_name }}\",\n    \"lastname\": \"{{ $json.last_name }}\",\n    \"dni\": \"{{ $json.dni }}\",\n    \"genero\": \"{{ $json.gender === \"M\" ? \"Masculino\" : \"Femenino\"}}\",\n    \"usuario_rol_plataforma_agencies\": \"{{ $json.usuario_rol_plataforma_agencies === \"true\" ? 'user' : '' }}\",\n    \"usuario_rol_plataforma_insurance\": \"{{ $json.usuario_rol_plataforma_insurance === \"true\" ? 'user' : '' }}\",\n    \"cargo_sistema\": \"{{ $json.cargo_sistema }}\"\n  }\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -122,7 +122,7 @@
         "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $json.email }}\",\n    \"phone\": \"{{ $json.phone }}\",\n    \"activo\": \"{{ $json.disabled_at == null ? true : false}}\",\n    \"emailverificado\": \"{{ $json.emailverificado ? 'true' : 'false' }}\",\n    \"firstname\": \"{{ $json.first_name }}\",\n    \"lastname\": \"{{ $json.last_name }}\",\n    \"dni\": \"{{ $json.dni }}\",\n    \"genero\": \"{{ $json.gender === \"M\" ? \"Masculino\" : \"Femenino\"}}\",\n    \"usuario_rol_plataforma_agencies\": \"{{ $json.usuario_rol_plataforma_agencies ? 'user' : '' }}\",\n    \"usuario_rol_plataforma_insurance\": \"{{ $json.usuario_rol_plataforma_insurance ? 'user' : '' }}\",\n    \"cargo_sistema\": \"{{ $json.cargo_sistema }}\"\n  }\n}",
+        "jsonBody": "={\n  \"properties\": {\n    \"phone\": \"{{ $json.phone }}\",\n    \"activo\": \"{{ $json.disabled_at == null ? true : false}}\",\n    \"emailverificado\": \"{{ $json.emailverificado ? 'true' : 'false' }}\",\n\"telefono_validado\": \"{{ $json.phoneverificado ? 'true' : 'false' }}\",\n\"identidad_validada\": \"{{ $json.identity_confirmed_at ? 'true' : 'false' }}\",\n    \"firstname\": \"{{ $json.first_name }}\",\n    \"lastname\": \"{{ $json.last_name }}\",\n    \"dni\": \"{{ $json.dni }}\",\n    \"genero\": \"{{ $json.gender === \"M\" ? \"Masculino\" : \"Femenino\"}}\",\n    \"usuario_rol_plataforma_agencies\": \"{{ $json.usuario_rol_plataforma_agencies === \"true\" ? 'user' : '' }}\",\n    \"usuario_rol_plataforma_insurance\": \"{{ $json.usuario_rol_plataforma_insurance === \"true\" ? 'user' : '' }}\",\n    \"cargo_sistema\": \"{{ $json.cargo_sistema }}\"\n  }\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -144,7 +144,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT \n    u.id,\n    u.business_id,\n    u.email,\n    u.phone,\n    u.email_verified_at AS emailverificado,\n    u.disabled_at,\n    upd.first_name,\n    upd.last_name,\n    upd.dni,\n    upd.gender,\n    IF(u.id = b.owner_id, 'dueno', 'empleado') AS cargo_sistema,\n\n    -- rol agencies\n    (\n        SELECT IF(COUNT(*) > 0, 'true', 'false')\n        FROM onboarding.business_platform bp1\n        WHERE bp1.business_id = b.id \n        AND bp1.platform_id IN (2,3)\n        LIMIT 1\n    ) AS usuario_rol_plataforma_agencies,\n\n    -- rol insurance\n    (\n        SELECT IF(COUNT(*) > 0, 'true', 'false')\n        FROM onboarding.business_platform bp2\n        WHERE bp2.business_id = b.id \n        AND bp2.platform_id IN (2,3)\n        LIMIT 1\n    ) AS usuario_rol_plataforma_insurance\n\nFROM onboarding.businesses b\nLEFT JOIN onboarding.users u \n       ON u.business_id = b.id\nLEFT JOIN onboarding.user_personal_data upd \n       ON upd.user_id = u.id\n\nWHERE b.code = {{ $json.body.code }};\n",
+        "query": "SELECT \n    u.id,\n    u.business_id,\n    u.email,\n    u.phone,\n    u.email_verified_at AS emailverificado,\n    u.phone_verified_at AS phoneverificado,\n    upd.identity_confirmed_at,\n    u.disabled_at,\n    upd.first_name,\n    upd.last_name,\n    upd.dni,\n    upd.gender,\n    IF(u.id = b.owner_id, 'dueno', 'empleado') AS cargo_sistema,\n\n    -- Permiso Agencias (Rol 1)\n    (\n        SELECT IF(COUNT(*) > 0, 'true', 'false')\n        FROM onboarding.platform_role_user pru\n        WHERE pru.user_id = u.id \n        AND pru.platform_role_id = 2\n    ) AS usuario_rol_plataforma_agencies,\n\n    -- Permiso Seguros (Rol 2)\n    (\n        SELECT IF(COUNT(*) > 0, 'true', 'false')\n        FROM onboarding.platform_role_user pru\n        WHERE pru.user_id = u.id \n        AND pru.platform_role_id = 3\n    ) AS usuario_rol_plataforma_insurance\n\nFROM onboarding.businesses b\nLEFT JOIN onboarding.users u \n       ON u.business_id = b.id\nLEFT JOIN onboarding.user_personal_data upd \n       ON upd.user_id = u.id\n\nWHERE b.code = {{ $json.body.code }};",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
@@ -165,7 +165,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n    b.code AS codigo,\n    b.name,\n    b.phone AS phone_agencia,\n    b.category_id AS categoria_final,\n    b.seller_id AS vendedor_final,\n    b.sub_zone_id AS subzona_final,\n    b.status_id AS estado_agencies,\n    b.trust_level_id AS confianza_consolidada,\n    b.commercial_trust_level_id AS confianza_comercial,\n    b.manager_trust_level_id AS confianza_gerente,\n    b.supervisor_trust_level_id AS confianza_supervisor,\n    IF(ISNULL(b.disabled_at), \"true\", \"false\") AS empresa_habilitada,\n    IF(ISNULL(b.ready_at), \"false\", \"true\") AS onboarding_finalizado,\n    b.cuit AS cuit_cuil,\n\n    -- Supervisor y sucursal\n    s.supervisor_id AS supervisor_final,\n    sp.branch_office_id AS sucursal_final,\n\n    -- Dirección de la agencia\n    a.street AS direccion_calle,\n    a.postal_code AS direccion_codigo_postal,\n    a.locality AS direccion_localidad,\n    a.number AS direccion_numero,\n    a.floor AS direccion_piso,\n    a.province_id AS direccion_provincia,\n\n    -- Habilitada en plataformas\n    IF(ISNULL(bp_agencies.business_id), \"false\", \"true\") AS habilitada_plataforma_agencies,\n    IF(ISNULL(bp_insurance.business_id), \"false\", \"true\") AS habilitada_plataforma_insurance,\n\n    -- Datos del dueño (u)\n    u.phone_verified_at AS numero_verificado,\n    u.finished_at AS usuario_finalizado,\n\n    -- Datos personales del dueño\n    upd.identity_confirmed_at AS identidad_validada,\n\n    -- Onboarding aprobado (lógica consolidada)\n    IF(\n        u.phone_verified_at IS NOT NULL\n        AND upd.identity_confirmed_at IS NOT NULL\n        AND u.finished_at IS NOT NULL,\n        \"true\",\n        \"false\"\n    ) AS onboarding_aprobado\n\nFROM onboarding.businesses b\nLEFT JOIN onboarding.sellers s \n    ON b.seller_id = s.id\nLEFT JOIN onboarding.supervisors sp \n    ON s.supervisor_id = sp.id\nLEFT JOIN onboarding.addresses a \n    ON b.id = a.addressable_id \n    AND a.addressable_type = 'App\\\\Models\\\\Business'\nLEFT JOIN onboarding.business_platform bp_agencies \n    ON bp_agencies.business_id = b.id \n    AND bp_agencies.platform_id = 2\nLEFT JOIN onboarding.business_platform bp_insurance \n    ON bp_insurance.business_id = b.id \n    AND bp_insurance.platform_id = 3\n\n-- 🔥 Agregamos el dueño de la agencia\nLEFT JOIN onboarding.users u \n    ON b.owner_id = u.id\nLEFT JOIN onboarding.user_personal_data upd \n    ON u.id = upd.user_id\n\nWHERE b.code = {{ $json.body.code }};\n",
+        "query": "SELECT\n    b.code AS codigo,\n    b.created_at,\n    b.id,\n    b.name,\n    b.phone AS phone_agencia,\n    b.category_id AS categoria_final,\n    b.seller_id AS vendedor_final,\n    b.sub_zone_id AS subzona_final,\n    b.status_id AS estado_agencies,\n    b.trust_level_id AS confianza_consolidada,\n    b.commercial_trust_level_id AS confianza_comercial,\n    b.manager_trust_level_id AS confianza_gerente,\n    b.supervisor_trust_level_id AS confianza_supervisor,\n    IF(ISNULL(b.disabled_at), \"true\", \"false\") AS empresa_habilitada,\n    IF(ISNULL(b.ready_at), \"false\", \"true\") AS onboarding_finalizado,\n    b.cuit AS cuit_cuil,\n\n    -- Supervisor y sucursal\n    s.supervisor_id AS supervisor_final,\n    sp.branch_office_id AS sucursal_final,\n\n    -- Dirección de la agencia\n    a.street AS direccion_calle,\n    a.postal_code AS direccion_codigo_postal,\n    a.locality AS direccion_localidad,\n    a.number AS direccion_numero,\n    a.floor AS direccion_piso,\n    a.province_id AS direccion_provincia,\n\n    -- Habilitada en plataformas\n    IF(ISNULL(bp_agencies.business_id), \"false\", \"true\") AS habilitada_plataforma_agencies,\n    IF(ISNULL(bp_insurance.business_id), \"false\", \"true\") AS habilitada_plataforma_insurance,\n\n    -- Datos del dueño (u)\n    u.phone_verified_at AS numero_verificado,\n    u.finished_at AS usuario_finalizado,\n\n    -- Datos personales del dueño\n    upd.identity_confirmed_at AS identidad_validada,\n\n    -- Onboarding aprobado (lógica consolidada)\n    IF(\n        u.phone_verified_at IS NOT NULL\n        AND upd.identity_confirmed_at IS NOT NULL\n        AND u.finished_at IS NOT NULL,\n        \"true\",\n        \"false\"\n    ) AS onboarding_aprobado\n\nFROM onboarding.businesses b\nLEFT JOIN onboarding.sellers s \n    ON b.seller_id = s.id\nLEFT JOIN onboarding.supervisors sp \n    ON s.supervisor_id = sp.id\nLEFT JOIN onboarding.addresses a \n    ON b.id = a.addressable_id \n    AND a.addressable_type = 'App\\\\Models\\\\Business'\nLEFT JOIN onboarding.business_platform bp_agencies \n    ON bp_agencies.business_id = b.id \n    AND bp_agencies.platform_id = 2\nLEFT JOIN onboarding.business_platform bp_insurance \n    ON bp_insurance.business_id = b.id \n    AND bp_insurance.platform_id = 3\n\n-- 🔥 Agregamos el dueño de la agencia\nLEFT JOIN onboarding.users u \n    ON b.owner_id = u.id\nLEFT JOIN onboarding.user_personal_data upd \n    ON u.id = upd.user_id\n\nWHERE b.code = {{ $json.body.code }};\n",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
@@ -235,7 +235,7 @@
         "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"properties\": {\n    \"name\": \"{{ $('Normalizar datos').item.json.properties.name }}\",\n    \"phone\": \"{{ $('Normalizar datos').item.json.properties.phone_agencia }}\",\n    \"categoria_final\": \"{{ $('Normalizar datos').item.json.properties.categoria_final }}\",\n    \"vendedor_final\": \"{{ $('Normalizar datos').item.json.properties.vendedor_final }}\",\n    \"subzona_final\": \"{{ $('Normalizar datos').item.json.properties.subzona_final }}\",\n    \"estado_agencies\": \"{{ $('Normalizar datos').item.json.properties.estado_agencies }}\",\n    \"confianza_consolidada\": \"{{ $('Normalizar datos').item.json.properties.confianza_consolidada }}\",\n    \"confianza_comercial\": \"{{ $('Normalizar datos').item.json.properties.confianza_comercial }}\",\n    \"confianza_gerente\": \"{{ $('Normalizar datos').item.json.properties.confianza_gerente }}\",\n    \"confianza_supervisor\": \"{{ $('Normalizar datos').item.json.properties.confianza_supervisor }}\",\n    \"empresa_habilitada\": \"{{ $('Normalizar datos').item.json.properties.empresa_habilitada }}\",\n    \"onboarding_finalizado\": \"{{ $('Normalizar datos').item.json.properties.onboarding_finalizado }}\",\n    \"onboarding_aprobado\": \"{{ $('Normalizar datos').item.json.properties.onboarding_aprobado }}\",\n    \"cuit_cuil\": \"{{ $('Normalizar datos').item.json.properties.cuit_cuil }}\",\n    \"supervisor_final\": \"{{ $('Normalizar datos').item.json.properties.supervisor_final }}\",\n    \"sucursal_final\": \"{{ $('Normalizar datos').item.json.properties.sucursal_final }}\",\n    \"direccion_calle\": \"{{ $('Normalizar datos').item.json.properties.direccion_calle }}\",\n    \"direccion_codigo_postal\": \"{{ $('Normalizar datos').item.json.properties.direccion_codigo_postal }}\",\n    \"direccion_localidad\": \"{{ $('Normalizar datos').item.json.properties.direccion_localidad }}\",\n    \"direccion_numero\": \"{{ $('Normalizar datos').item.json.properties.direccion_numero }}\",\n    \"direccion_piso\": \"{{ $('Normalizar datos').item.json.properties.direccion_piso }}\",\n    \"direccion_provincia\": \"{{ $('Normalizar datos').item.json.properties.direccion_provincia }}\",\n    \"habilitada_plataforma_agencies\": \"{{ $('Normalizar datos').item.json.properties.habilitada_plataforma_agencies }}\",\n    \"habilitada_plataforma_insurance\": \"{{ $('Normalizar datos').item.json.properties.habilitada_plataforma_insurance }}\"\n  }\n}\n",
+        "jsonBody": "={\n  \"properties\": {\n    \"phone\": \"{{ $('Normalizar datos').item.json.properties.phone_agencia }}\",\n\"categoria_final\": \"{{ $('Normalizar datos').item.json.properties.categoria_final }}\",\n    \"vendedor_final\": \"{{ $('Normalizar datos').item.json.properties.vendedor_final }}\",\n    \"subzona_final\": \"{{ $('Normalizar datos').item.json.properties.subzona_final }}\",\n    \"estado_agencies\": \"{{ $('Normalizar datos').item.json.properties.estado_agencies }}\",\n    \"confianza_consolidada\": \"{{ $('Normalizar datos').item.json.properties.confianza_consolidada }}\",\n    \"confianza_comercial\": \"{{ $('Normalizar datos').item.json.properties.confianza_comercial }}\",\n    \"confianza_gerente\": \"{{ $('Normalizar datos').item.json.properties.confianza_gerente }}\",\n    \"confianza_supervisor\": \"{{ $('Normalizar datos').item.json.properties.confianza_supervisor }}\",\n    \"empresa_habilitada\": \"{{ $('Normalizar datos').item.json.properties.empresa_habilitada }}\",\n    \"onboarding_finalizado\": \"{{ $('Normalizar datos').item.json.properties.onboarding_finalizado }}\",\n    \"onboarding_aprobado\": \"{{ $('Normalizar datos').item.json.properties.onboarding_aprobado }}\",\n    \"cuit_cuil\": \"{{ $('Normalizar datos').item.json.properties.cuit_cuil }}\",\n    \"supervisor_final\": \"{{ $('Normalizar datos').item.json.properties.supervisor_final }}\",\n    \"sucursal_final\": \"{{ $('Normalizar datos').item.json.properties.sucursal_final }}\",\n    \"habilitada_plataforma_agencies\": \"{{ $('Normalizar datos').item.json.properties.habilitada_plataforma_agencies }}\",\n    \"habilitada_plataforma_insurance\": \"{{ $('Normalizar datos').item.json.properties.habilitada_plataforma_insurance }}\"\n  }\n}\n",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -286,9 +286,19 @@
                 "operation": "true",
                 "singleValue": true
               }
+            },
+            {
+              "id": "833d558f-2702-40d3-bc15-d837b7ba3dd3",
+              "leftValue": "={{ \n  $now.toDateTime() <\n  $('Normalizar datos').item.json.raw.created_at\n    .toDateTime()\n    .plus({ minutes: 15 })\n}}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
           ],
-          "combinator": "and"
+          "combinator": "or"
         },
         "options": {}
       },
@@ -534,7 +544,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT IGNORE INTO onboarding.business_platform (business_id, platform_id) VALUES ({{ $('Normalizar datos').item.json.raw.id }}, 2);",
+        "query": "INSERT IGNORE INTO onboarding.business_platform (business_id, platform_id) VALUES ({{ $('Normalizar datos').item.json.raw.id }}, 2);",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
@@ -653,7 +663,7 @@
         "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $json.email }}\",\n    \"phone\": \"{{ $json.phone }}\",\n    \"activo\": \"{{ $json.disabled_at == null ? true : false}}\",\n    \"emailverificado\": \"{{ $json.emailverificado ? 'true' : 'false' }}\",\n    \"firstname\": \"{{ $json.first_name }}\",\n    \"lastname\": \"{{ $json.last_name }}\",\n    \"dni\": \"{{ $json.dni }}\",\n    \"genero\": \"{{ $json.gender === \"M\" ? \"Masculino\" : \"Femenino\"}}\",\n    \"usuario_rol_plataforma_agencies\": \"{{ $json.usuario_rol_plataforma_agencies ? 'user' : '' }}\",\n    \"usuario_rol_plataforma_insurance\": \"{{ $json.usuario_rol_plataforma_insurance ? 'user' : '' }}\",\n    \"cargo_sistema\": \"{{ $json.cargo_sistema }}\"\n  }\n}",
+        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $json.email }}\",\n    \"activo\": \"{{ $json.disabled_at == null ? true : false}}\",\n    \"emailverificado\": \"{{ $json.emailverificado ? 'true' : 'false' }}\",\n    \"firstname\": \"{{ $json.first_name }}\",\n    \"lastname\": \"{{ $json.last_name }}\",\n    \"dni\": \"{{ $json.dni }}\",\n    \"genero\": \"{{ $json.gender === \"M\" ? \"Masculino\" : \"Femenino\"}}\",\n    \"usuario_rol_plataforma_agencies\": \"{{ $json.usuario_rol_plataforma_agencies ? 'user' : '' }}\",\n    \"usuario_rol_plataforma_insurance\": \"{{ $json.usuario_rol_plataforma_insurance ? 'user' : '' }}\",\n    \"cargo_sistema\": \"{{ $json.cargo_sistema }}\"\n  }\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -663,7 +673,7 @@
         -96
       ],
       "id": "9cad7259-9827-4e1d-940a-74a0c8cb3bbb",
-      "name": "Crear Nuevo Contacto1",
+      "name": "Crear Nuevo Contacto sin telefono",
       "credentials": {
         "httpBearerAuth": {
           "id": "o6wh93iNfl5M3bKB",
@@ -995,7 +1005,7 @@
       "main": [
         [
           {
-            "node": "Crear Nuevo Contacto1",
+            "node": "Crear Nuevo Contacto sin telefono",
             "type": "main",
             "index": 0
           }
@@ -1009,7 +1019,7 @@
         ]
       ]
     },
-    "Crear Nuevo Contacto1": {
+    "Crear Nuevo Contacto sin telefono": {
       "main": [
         [
           {
@@ -1026,7 +1036,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "94c5a0ad-cc51-4636-9469-90c84c96621b",
+  "versionId": "0ef24553-24f4-4d2f-9f0b-02c4b2953a6f",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"

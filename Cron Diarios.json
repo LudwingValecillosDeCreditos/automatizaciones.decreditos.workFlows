@@ -1,0 +1,267 @@
+{
+  "name": "Cron Diarios",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        96
+      ],
+      "id": "73e0a366-b9c4-40c3-8454-64fd51401e9a",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://intranet.decreditos.com/hs/hubspot_deals.php?mode=sync&days_back=2",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "65f2745f-7a40-4ff5-9bdc-137c19cbf416",
+      "name": "hubspot_deals.php"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        448,
+        192
+      ],
+      "id": "336c2a55-2e56-4886-b226-02273b3ced98",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "name": "Replace Me",
+      "typeVersion": 1,
+      "position": [
+        1408,
+        160
+      ],
+      "id": "fa1cb1fb-e9e2-439d-ae85-b59967a6e94c"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"codigo\",\n          \"operator\": \"EQ\",\n          \"value\": {{ $json.codigo }}\n        }\n      ]\n    }\n  ],\n  \"properties\": [\"name\", \"codigo\", \"hs_object_id\", \"createdate\", \"equipo_email\"],\n  \"limit\": 1\n}",
+        "options": {}
+      },
+      "id": "a2a7f43f-0faa-4dd8-a65b-9eb5f3a6dfb0",
+      "name": "Obtener Empresa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        128
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4338aba7-7af2-425a-a863-e448279c83c1",
+              "leftValue": "={{ $json.total }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        128
+      ],
+      "id": "748d3281-e6fc-4f76-a259-6fe593c28b0c",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://automatizaciones.decreditos.com/webhook/sincroAgencia",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"code\" : {{ $('Loop Over Items').item.json.codigo }}\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        192
+      ],
+      "id": "27c4f978-ab79-48fe-ae1f-1284438ba55f",
+      "name": "Sincronizador 3",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT code AS codigo\nFROM onboarding.businesses\nWHERE created_at >= NOW() - INTERVAL 1 DAY;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        224,
+        192
+      ],
+      "id": "20938dd3-48c3-43ad-8187-575f22514b81",
+      "name": "Ultimos empresas creadas",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "hubspot_deals.php",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Ultimos empresas creadas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Obtener Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Me": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Empresa": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sincronizador 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sincronizador 3": {
+      "main": [
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ultimos empresas creadas": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "da482790-6267-467f-a1ae-4d433cb644ba",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
+  },
+  "id": "YhfqYrBLAELoWFNT",
+  "tags": []
+}

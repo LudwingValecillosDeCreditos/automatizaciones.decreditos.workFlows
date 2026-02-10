@@ -1,0 +1,267 @@
+{
+  "name": "Sincro ex_titulos_dni",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -224,
+        448
+      ],
+      "id": "e90e937f-845c-4aad-b4e6-890088d94290",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nreturn {\n  object : $input.all()\n} ;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        368
+      ],
+      "id": "d24791d5-ded6-4ee8-9084-b1ab69f39da5",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        864,
+        512
+      ],
+      "id": "8d442474-bbbd-4976-a347-98c9659b0038",
+      "name": "Wait",
+      "webhookId": "d028782f-7dd2-46af-baef-3e058cfce6ae"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -672,
+        448
+      ],
+      "id": "edf74ae2-1d91-4d8f-8c57-a50feeeaeec0",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT *\nFROM prendarios.ex_titulos_dni\nWHERE estado = 'PENDIENTE';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -448,
+        448
+      ],
+      "id": "74ea3067-6608-4a0b-9a51-34927b995801",
+      "name": "Ex pendientes",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.novita.ai/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer sk_F0m7D_Aywkji9Xp0mi57L9OSuRfUcWEYpME4wfTwvzc"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"deepseek/deepseek-v3.2\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are an expert Argentine address normalizer. Parse the address and extract components intelligently, adapting to messy or incomplete formats.\\n\\n## CRITICAL OUTPUT INSTRUCTION\\nReturn ONLY a valid JSON object. DO NOT include explanations, comments, SQL statements, markdown formatting, code blocks, or any extra text before or after the JSON.\\n\\n## OUTPUT JSON SCHEMA\\n{\\n  \\\"nroop\\\": <number>,\\n  \\\"calle\\\": \\\"<string>\\\",\\n  \\\"nro\\\": \\\"<string>\\\",\\n  \\\"piso\\\": \\\"<string>\\\",\\n  \\\"depto\\\": \\\"<string>\\\",\\n  \\\"localidad\\\": \\\"<string>\\\",\\n  \\\"provincia\\\": \\\"<string>\\\"\\n}\\n\\n## PRE-PROCESSING (CRITICAL - APPLY FIRST)\\n**Step 1: Clean empty segments and special formats**\\n- Remove consecutive hyphens with empty content: ' - - ' → ' - '\\n- Remove 'ARGENTINA' if it appears at the end (it's not a province)\\n- Trim whitespace around hyphens\\n- Remove trailing incomplete text (ends with 'COR', 'ARG', 'PERE', etc.)\\n- Replace 'Nº' or 'N°' or 'N º' with space\\n- Replace '&' with 'Y'\\n- Replace '·' with space\\n- Replace '..' with '.'\\n- Remove CP codes (CP: 8300)\\n- Handle format ':' in manzanas: 'MZNA:27' → 'MZNA 27', 'CASA:18' → 'CASA 18'\\n- Remove leading dots: '.12' → '12'\\n\\n**Step 2: Detect format anomalies**\\n- If 'Altura:' or 'NRO:' or 'PISO:' or 'DPTO:' present → extract value after colon\\n  Example: 'Altura:1211' → extract '1211' as street number\\n  Example: 'NRO: 878 PISO: 6 DPTO: F' → extract 878, piso=6, depto=F\\n- If no hyphens present → attempt space-based parsing\\n  Example: 'CALLE 123 LOCALIDAD PROVINCIA' → split by spaces, last 2 = locality/province\\n\\n**Step 3: Handle intersections**\\n- Pattern: 'CALLE1 Y CALLE2' or 'CALLE1 ESQ CALLE2' or 'CALLE1 E/ CALLE2' or 'Esquina'\\n- Action: Combine both streets in calle field\\n- If followed by S/N → nro=''\\n- Example: '25 DE MAYO Y CONSTITUCION S/N' → calle='25 DE MAYO Y CONSTITUCION', nro=''\\n- Example: 'GOB. ASMAR Y C.BANDERA MZA 19 L 13' → calle='GOB ASMAR Y C BANDERA MZ 19 L 13', nro=''\\n\\n**Step 4: Normalize abbreviations**\\n- MBK → MANZANA\\n- LTE, LT, L (when followed by number in manzana context) → LOTE\\n- CSA → CASA\\n- MZNA, MZA → MZ\\n- PJE, PASAJE → PJE\\n- ASENT, ASENT. → ASENTAMIENTO\\n- Bº, B°, B → (keep as Bº for barrio)\\n- L º → LOTE (special case)\\n\\n## NORMALIZATION\\n- Convert to UPPERCASE\\n- Remove accents: Á→A, É→E, Í→I, Ó→O, Ú→U (keep Ñ)\\n- Remove prefixes: DOMICILIO, DOM, DIRECCION, DIR, DOMCLIO, DOMC, DOMQUO, DOMCHO, DOMDIO, DOMMEGLIO, DOMICIUO, DOMDOMQUO\\n- Clean symbols: &→Y, ·→space, ..→., Nº→space\\n- Numbers with comma: 4,5 → 4.5 (but don't convert to decimal, keep as string)\\n- Remove 'CP: XXXX' codes\\n- Remove multiple spaces (reduce to single space)\\n- Remove dots before numbers: .12 → 12\\n\\n## PROVINCE & LOCALITY (CRITICAL - READ CAREFULLY)\\n**Province:** Always the LAST element after final hyphen:\\n- 'ARGENTINA' at the end → REMOVE IT, use previous segment as province\\n  Example: 'BUENOS AIRES - ZÁRATE - ARGENTINA' → provincia='BUENOS AIRES', localidad='ZARATE'\\n- 'CIUDAD AUTONOMA DE BS AS' / 'CAPITAL FEDERAL' / 'CIUDAD DE BUENOS AIRES' / 'COMUNA X' (alone) → provincia='BUENOS AIRES', localidad='CABA'\\n- Any other valid Argentine province → use that exact name\\n- If no hyphen: last word = provincia\\n\\n**Special prefixes to remove from locality (NOT street):**\\n- DISTRITO DE\\n- ASENT., ASENTAMIENTO\\n- A.F.R.\\n- Remove these prefixes from locality segments but keep the rest\\n\\n**Locality pattern recognition:**\\nArgentine addresses follow these structures:\\n1. STREET NUMBER - LOCALITY - PROVINCE (2 segments after street)\\n2. STREET NUMBER - LOCALITY - PARTIDO - PROVINCE (3 segments after street)\\n3. STREET NUMBER BARRIO - LOCALITY - PARTIDO - PROVINCE (barrio before segments)\\n\\n**STEP-BY-STEP EXTRACTION:**\\n1. **IMPORTANT:** BARRIO, Bº, B° that appear BEFORE the first hyphen are PART OF THE STREET NAME - DO NOT REMOVE\\n2. Remove BARRIO, Bº, B°, COMUNA (when in locality context), ZONA, SECTOR, IPV, DISTRITO, ASENT only from locality segments (AFTER first hyphen)\\n3. Split remaining text by hyphens\\n4. Last segment = PROVINCE (if ends with 'ARGENTINA', use second-to-last; if 'COMUNA X' alone, provincia='BUENOS AIRES', localidad='CABA')\\n5. Count segments BEFORE province:\\n   - If 1 segment: localidad = that segment\\n   - If 2 segments: localidad = 'FIRST, SECOND' (locality, partido)\\n   - If 3+ segments: localidad = 'SECOND_TO_LAST, LAST' (ignore first as barrio)\\n\\n**EXAMPLES OF PARSING:**\\n- '352 IPV - BERROTARÁN - RIO CUARTO - CORDOBA' → localidad='BERROTARAN, RIO CUARTO'\\n- 'GRAND BOURG - MALVINAS ARGENTINAS - BUENOS AIRES' → localidad='GRAND BOURG, MALVINAS ARGENTINAS'\\n- 'QUILMES - QUILMES - BUENOS AIRES' → localidad='QUILMES, QUILMES'\\n- 'BARRIO PILETONES MZA 6 CASA 29 - COMUNA 8' → provincia='BUENOS AIRES', localidad='CABA'\\n\\n## STREET & NUMBER (CRITICAL - COMPLETE REWRITE)\\n**CRITICAL RULE 1: BARRIO positioning**\\n- If BARRIO, Bº, B° appears BEFORE the first hyphen → INCLUDE IT IN THE CALLE FIELD\\n- If BARRIO appears at the VERY START of address → it's still part of calle\\n- Examples:\\n  • 'BARRIO PILETONES MZA 6 CASA 29' → calle='BARRIO PILETONES MZ 6', nro='29'\\n  • 'OSVALDO SORIANO Bº VALENTINA NORTE' → calle='OSVALDO SORIANO Bº VALENTINA NORTE'\\n\\n**CRITICAL RULE 2: Street + Number separation**\\n- If a NORMAL STREET NAME (not manzana/lote) is followed by a number (not part of street name like '2 DE MAYO'), extract number as nro\\n- Pattern: 'STREETNAME NUMBER Bº BARRIO' → calle='STREETNAME Bº BARRIO', nro='NUMBER'\\n- Examples:\\n  • 'ANTONELLI N° 486' → calle='ANTONELLI', nro='486'\\n  • 'BOEDO 2362 B° DEL CARMEN' → calle='BOEDO Bº DEL CARMEN', nro='2362'\\n  • 'RIVADAVIA 5128 LOMA HERMOSA' → calle='RIVADAVIA', nro='5128'\\n\\n**Priority order for parsing:**\\n\\n**1. Manzanas with CASA/LOTE (HIGHEST PRIORITY):**\\n\\n**Pattern 1A: Standard MZ + CASA**\\n- Format: [BARRIO] + MZ/MZNA/MZA + alphanumeric + CASA/CSA + number + [Bº BARRIO_NAME]\\n- Output: calle='[BARRIO] MZ [id] [Bº BARRIO_NAME]', nro='[casa_number]'\\n- Examples:\\n  • 'MANZANA 7244 CASA 9 LA RIBERA' → calle='MZ 7244 LA RIBERA', nro='9'\\n  • 'MANZANA C CASA 11 B° VIRGEN DEL ROSARIO' → calle='MZ C B° VIRGEN DEL ROSARIO', nro='11'\\n  • 'BARRIO PILETONES MZA 6 CASA 29' → calle='BARRIO PILETONES MZ 6', nro='29'\\n  • 'MZNA:27 A CASA:18 S/N' → calle='MZ 27 A', nro='18'\\n\\n**Pattern 1B: CASA without MZ (standalone CASA)**\\n- Format: STREETNAME + CASA + number + [Bº BARRIO]\\n- Output: calle='STREETNAME CASA [Bº BARRIO]', nro='[number]'\\n- Examples:\\n  • 'RIVADAVIA CASA 2' → calle='RIVADAVIA CASA', nro='2'\\n  • 'CALLE 30 CASA 18' → calle='CALLE 30 CASA', nro='18'\\n  • 'HORTENSIA MAGGI CASA 102 Bº ESPERANZA' → calle='HORTENSIA MAGGI CASA Bº ESPERANZA', nro='102'\\n  • 'S/CALLE Bº CENTENARIO CASA Nº 48' → calle='S/CALLE Bº CENTENARIO CASA', nro='48'\\n  • 'MANZANA C CASA EL MARCADO 4 BARRIO MOLINA CABRER' → calle='MZ C CASA EL MARCADO BARRIO MOLINA CABRER', nro='4'\\n\\n**Pattern 1C: MZ + LOTE (no CASA)**\\n- Format: [BARRIO] + MZ/MZNA + alphanumeric + LOTE/LT/L + number + [Bº BARRIO]\\n- Output: calle='[BARRIO] MZ [id] LOTE [lote_number] [Bº BARRIO]', nro=''\\n- Handle INVERSE order: 'LOTE X MZA Y' → same as 'MZA Y LOTE X'\\n- Examples:\\n  • 'MZA AP 4 LOTE 5 S/N' → calle='MZ AP 4 LOTE 5', nro=''\\n  • 'LOTE 23 MZA 70' → calle='MZ 70 LOTE 23', nro=''\\n  • 'GOB. ASMAR Y C.BANDERA MZA 19 L 13 S/N' → calle='GOB ASMAR Y C BANDERA MZ 19 LOTE 13', nro=''\\n  • 'L º ALUMINE MZ LT 5 Bº UNIVERSITARIO' → calle='L ALUMINE MZ LOTE 5 Bº UNIVERSITARIO', nro=''\\n  • 'ASENT. 16 DE MAYO MZA 1 LTE 7' → calle='ASENTAMIENTO 16 DE MAYO MZ 1 LOTE 7', nro=''\\n\\n**Pattern 1D: LOTE without MZ (standalone LOTE)**\\n- Format: LOTE + number + [Bº BARRIO]\\n- Output: calle='LOTE [number] [Bº BARRIO]', nro=''\\n- Examples:\\n  • 'LOTE 5 B° RAICES' → calle='LOTE 5 Bº RAICES', nro=''\\n\\n**Pattern 1E: Special manzana formats**\\n- 'MANZANA T 10 B° NAME' → calle='MZ T 10 Bº NAME', nro=''\\n- 'MANZANA E CASA 24 B° NAME' → calle='MZ E B° NAME', nro='24'\\n- 'MF C3 S/N BARRIO ARENALES' → calle='MF C3 BARRIO ARENALES', nro=''\\n\\n**2. Routes:**\\n- RUTA/RTA + number + KM + number → all in calle, nro=''\\n- Handle comma in KM: 'KM 4,5' → 'KM 4.5'\\n- Example: 'RUTA 2 KM 45' → calle='RUTA 2 KM 45', nro=''\\n\\n**3. Special street types:**\\n\\n**3A: S/CALLE or S/N at start**\\n- If address starts with 'S/CALLE' or 'S/N' → it's the street name\\n- Extract CASA/Bº if present\\n- Examples:\\n  • 'S/CALLE - Bº CENTENARIO CASA Nº 48' → calle='S/CALLE Bº CENTENARIO CASA', nro='48'\\n  • 'BENEGAS S/N' → calle='BENEGAS', nro=''\\n\\n**3B: BARRIO at start (without MZ/CASA)**\\n- If starts with 'BARRIO NAME' but no MZ/CASA follows → keep BARRIO in calle\\n- Example: 'BARRIO ARENALES' → calle='BARRIO ARENALES', nro=''\\n\\n**3C: TORRE**\\n- 'STREETNAME TORRE + number' → calle='STREETNAME TORRE [number]', nro=''\\n- Example: 'AV CARBALLO TORRE 2' → calle='AV CARBALLO TORRE 2', nro=''\\n\\n**3D: PASAJE/PJE**\\n- Normalize to PJE, keep barrio\\n- Example: 'PASAJE GRANDOLI Bº ESTANISLAO LOPEZ' → calle='PJE GRANDOLI Bº ESTANISLAO LOPEZ', nro=''\\n- Example: 'PJE. ALCORTA' → calle='PJE ALCORTA', nro=''\\n\\n**4. Normal streets with optional number:**\\n- Street name + (optional: Bº BARRIO_NAME) + optional: first number that's a valid height\\n- Numbers in street names ('2 DE MAYO', '25 DE MAYO', '9 DE JULIO', etc.) are NOT height\\n- **CRITICAL:** If street is followed by a number (not part of name), extract as nro\\n- **KEEP BARRIO NAME IN CALLE, not in nro**\\n\\n**Detection logic:**\\n- Find first number after street name that's NOT part of a date pattern\\n- If number appears BEFORE 'Bº' or 'BARRIO' or 'B°' → it's nro, barrio goes in calle\\n- If number appears AFTER 'Bº' → number might be nro if followed by hyphen\\n\\n**Examples:**\\n  • 'ALSINA 1234' → calle='ALSINA', nro='1234'\\n  • 'ALSINA' → calle='ALSINA', nro=''\\n  • '2 DE MAYO 352' → calle='2 DE MAYO', nro='352'\\n  • '2 DE MAYO' → calle='2 DE MAYO', nro=''\\n  • 'PASAJE GRANDOLI Bº ESTANISLAO LOPEZ' → calle='PJE GRANDOLI Bº ESTANISLAO LOPEZ', nro=''\\n  • 'OSVALDO SORIANO Bº VALENTINA NORTE' → calle='OSVALDO SORIANO Bº VALENTINA NORTE', nro=''\\n  • 'BOEDO 2362 B° DEL CARMEN' → calle='BOEDO Bº DEL CARMEN', nro='2362'\\n  • 'ANTONELLI N° 486' → calle='ANTONELLI', nro='486'\\n  • 'JUAN DE GARAY 3936' → calle='JUAN DE GARAY', nro='3936'\\n  • 'JUAN DE GARAY' → calle='JUAN DE GARAY', nro=''\\n  • 'EL JARILLAL CHACRA MONTE' → calle='EL JARILLAL CHACRA MONTE', nro=''\\n  • 'SIERRAS DE MASA - SAN ISIDRO' → calle='SIERRAS DE MASA', nro=''\\n\\n**5. Corrupted/minimal addresses:**\\n- '.12' → calle='12', nro=''\\n- Very short/corrupted → extract what's available\\n\\n**Normalize final calle:**\\n- MANZANA/MZA/MZNA → 'MZ'\\n- PASAJE → 'PJE'\\n- CSA → CASA\\n- LTE, LT, L (in lote context) → LOTE\\n- Remove extra spaces\\n- Keep Bº, B° as is\\n\\n## FLOOR & APARTMENT (INTELLIGENT INTERPRETATION)\\n**KEY:** Analyze text AFTER street number and BEFORE first hyphen\\n\\n**CRITICAL: Exclude numbers that belong to BARRIO/CASA/LOTE/IPV/COMUNA/VIVIENDAS**\\n- If text contains 'Bº', 'B°', 'BARRIO', 'CASA', 'LOTE', 'IPV', 'COMUNA', 'VIVIENDAS', 'VIV' followed by number → NOT piso/depto\\n- Example: 'B° 40 VIVIENDAS' → 40 is NOT piso\\n- Example: 'COMUNA 4' → 4 is NOT piso\\n- Example: 'CASA 29' → 29 is NOT piso (it's nro)\\n- **BUT if Bº appears with a NAME (not number), it's part of calle, not piso/depto**\\n\\nCommon patterns:\\n\\n**a) Number + Letter ('2181 1 A', '456 2 B'):**\\n- If digit (1-2 digits) or PB/PA + ONE letter (A-Z)\\n- AFTER street number, BEFORE hyphen\\n- NOT preceded by BARRIO/Bº/IPV/COMUNA/CASA/LOTE with number\\n- NOT part of barrio name\\n- Then: piso=number, depto=letter\\n\\n**b) Letter only ('123 B'):**\\n- Single letter after street number (no digit before)\\n- NOT part of 'Bº BARRIO_NAME' pattern\\n- NOT 'B' for barrio\\n- Then: piso='', depto=letter\\n\\n**c) Keywords (PISO, DPTO, DEPTO, TORRE, PA, PB):**\\n- Extract associated values\\n- 'CALLE 123 PISO 4 DEPTO 8' → piso='4', depto='8'\\n- 'CALLE 123 PA' → piso='PA', depto=''\\n- 'CALLE 123 PB 2' → piso='PB', depto='2'\\n- 'CALLE 123 10 E TORRE 6' → piso='10', depto='E' (ignore TORRE)\\n- **BUT: 'AV CARBALLO TORRE 2' → TORRE 2 is part of calle, not piso**\\n\\n**d) Two consecutive numbers ('580 7 705'):**\\n- If 2 numbers after street (one short 1-2 digits, one long 3-4)\\n- NOT in context of MZ/LOTE/CASA\\n- NOT part of barrio\\n- Then: piso=short, depto=long\\n\\n**e) Single digit at end:**\\n- If ONE digit (1-2 digits max) after street number\\n- NOT followed by BARRIO/Bº/VIVIENDAS/CASA/LOTE\\n- NOT part of barrio name\\n- Then: piso=digit, depto=''\\n\\n**f) Special case - number + 0:**\\n- If pattern like '515 0' appears → ignore the 0\\n- Example: 'SANTOS LUGARES 515 0' → calle='SANTOS LUGARES', nro='515', piso='', depto=''\\n\\n**IMPORTANT:**\\n- If NO clear pattern → leave piso='', depto=''\\n- Don't confuse with BARRIO, IPV, COMUNA, VIVIENDAS, CASA, LOTE numbers\\n- Check context: if word after number is BARRIO/VIVIENDAS/IPV/VIV/CASA/LOTE → ignore number for piso/depto\\n- TORRE at start of address is part of calle, not piso\\n- Bº + NAME is part of calle, not piso/depto\\n\\n## VALIDATIONS\\n- nro: digits only or empty ''\\n- If nro contains comma (4,5) → keep as is (for KM)\\n- provincia: must be valid Argentine province (full name, not abbreviation)\\n- localidad ≠ provincia (never equal unless special case like CAPITAL)\\n- If calle empty → 'DOMICILIO INCOMPLETO'\\n- If nro='00' or nro='0' (alone) or contains letters → nro=''\\n- Remove multiple spaces (reduce to single space)\\n- All string fields use empty string '' when no value (NOT null)\\n- Remove trailing/leading whitespace from all fields\\n- If address seems truncated (less than 10 chars total) → try to extract what's available\\n- **KEEP Bº, B°, BARRIO in calle field when it appears before first hyphen**\\n- **EXTRACT number from calle when it's a valid height (not part of street name like '2 DE MAYO')**\\n\\n## EXAMPLES\\n\\n**Example 1:**\\nInput: 'MANZANA 7244 CASA 9 LA RIBERA - SANTA FE - SANTA FE'\\nnroop: 1\\nOutput:\\n{\\\"nroop\\\":1,\\\"calle\\\":\\\"MZ 7244 LA RIBERA\\\",\\\"nro\\\":\\\"9\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"SANTA FE\\\",\\\"provincia\\\":\\\"SANTA FE\\\"}\\n\\n**Example 2:**\\nInput: 'PASAJE GRANDOLI Bº ESTANISLAO LOPEZ - SANTA FE - SANTA FE'\\nnroop: 2\\nOutput:\\n{\\\"nroop\\\":2,\\\"calle\\\":\\\"PJE GRANDOLI Bº ESTANISLAO LOPEZ\\\",\\\"nro\\\":\\\"\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"SANTA FE\\\",\\\"provincia\\\":\\\"SANTA FE\\\"}\\n\\n**Example 3:**\\nInput: 'MANZANA 4 - PJE. 13 Bº ALTO VERDE - SANTA FE - SANTA FE'\\nnroop: 3\\nOutput:\\n{\\\"nroop\\\":3,\\\"calle\\\":\\\"MZ 4 PJE 13 Bº ALTO VERDE\\\",\\\"nro\\\":\\\"\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"SANTA FE\\\",\\\"provincia\\\":\\\"SANTA FE\\\"}\\n\\n**Example 4:**\\nInput: 'CALLE 20 ENTRE 3 Y 5 CASA 20 - LA PLATA - BUENOS AIRES'\\nnroop: 4\\nOutput:\\n{\\\"nroop\\\":4,\\\"calle\\\":\\\"CALLE 20 ENTRE 3 Y 5 CASA\\\",\\\"nro\\\":\\\"20\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"LA PLATA\\\",\\\"provincia\\\":\\\"BUENOS AIRES\\\"}\\n\\n**Example 5:**\\nInput: 'OSVALDO SORIANO Bº VALENTINA NORTE - NEUQUEN - NEUQUEN'\\nnroop: 5\\nOutput:\\n{\\\"nroop\\\":5,\\\"calle\\\":\\\"OSVALDO SORIANO Bº VALENTINA NORTE\\\",\\\"nro\\\":\\\"\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"NEUQUEN\\\",\\\"provincia\\\":\\\"NEUQUEN\\\"}\\n\\n**Example 6:**\\nInput: 'S/CALLE - Bº CENTENARIO CASA Nº 48 - NEUQUEN - NEUQUEN'\\nnroop: 6\\nOutput:\\n{\\\"nroop\\\":6,\\\"calle\\\":\\\"S/CALLE Bº CENTENARIO CASA\\\",\\\"nro\\\":\\\"48\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"NEUQUEN\\\",\\\"provincia\\\":\\\"NEUQUEN\\\"}\\n\\n**Example 7:**\\nInput: 'MANZANA C CASA 11 B° VIRGEN DEL ROSARIO - MENDOZA - MENDOZA'\\nnroop: 7\\nOutput:\\n{\\\"nroop\\\":7,\\\"calle\\\":\\\"MZ C B° VIRGEN DEL ROSARIO\\\",\\\"nro\\\":\\\"11\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"MENDOZA\\\",\\\"provincia\\\":\\\"MENDOZA\\\"}\\n\\n**Example 8:**\\nInput: 'LOTE 23 MZA 70 - LAS CORZUELAS - JUJUY - JUJUY'\\nnroop: 8\\nOutput:\\n{\\\"nroop\\\":8,\\\"calle\\\":\\\"MZ 70 LOTE 23\\\",\\\"nro\\\":\\\"\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"LAS CORZUELAS, JUJUY\\\",\\\"provincia\\\":\\\"JUJUY\\\"}\\n\\n**Example 9:**\\nInput: 'RIVADAVIA CASA 2 - 2º SECCION - MENDOZA - MENDOZA'\\nnroop: 9\\nOutput:\\n{\\\"nroop\\\":9,\\\"calle\\\":\\\"RIVADAVIA CASA\\\",\\\"nro\\\":\\\"2\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"2 SECCION, MENDOZA\\\",\\\"provincia\\\":\\\"MENDOZA\\\"}\\n\\n**Example 10:**\\nInput: 'LOTE 5 B° RAICES - MENDOZA - LUJAN DE CUYO'\\nnroop: 10\\nOutput:\\n{\\\"nroop\\\":10,\\\"calle\\\":\\\"LOTE 5 Bº RAICES\\\",\\\"nro\\\":\\\"\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"MENDOZA, LUJAN DE CUYO\\\",\\\"provincia\\\":\\\"MENDOZA\\\"}\\n\\n**Example 11:**\\nInput: 'GOB. ASMAR Y C.BANDERA MZA 19 L 13 S/N ISLAS MAL - NEUQUEN - NEUQUEN'\\nnroop: 11\\nOutput:\\n{\\\"nroop\\\":11,\\\"calle\\\":\\\"GOB ASMAR Y C BANDERA MZ 19 LOTE 13\\\",\\\"nro\\\":\\\"\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"NEUQUEN\\\",\\\"provincia\\\":\\\"NEUQUEN\\\"}\\n\\n**Example 12:**\\nInput: 'HORTENSIA MAGGI CASA 102 Bº ESPERANZA - SANTA FE - SANTA FE'\\nnroop: 12\\nOutput:\\n{\\\"nroop\\\":12,\\\"calle\\\":\\\"HORTENSIA MAGGI CASA Bº ESPERANZA\\\",\\\"nro\\\":\\\"102\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"SANTA FE\\\",\\\"provincia\\\":\\\"SANTA FE\\\"}\\n\\n**Example 13:**\\nInput: 'BARRIO PILETONES MZA 6 CASA 29 - COMUNA 8'\\nnroop: 13\\nOutput:\\n{\\\"nroop\\\":13,\\\"calle\\\":\\\"BARRIO PILETONES MZ 6\\\",\\\"nro\\\":\\\"29\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"CABA\\\",\\\"provincia\\\":\\\"BUENOS AIRES\\\"}\\n\\n**Example 14:**\\nInput: 'ANTONELLI N° 486 - BUENA NUEVA - GUAYMALLEN - MENDOZA'\\nnroop: 14\\nOutput:\\n{\\\"nroop\\\":14,\\\"calle\\\":\\\"ANTONELLI\\\",\\\"nro\\\":\\\"486\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"BUENA NUEVA, GUAYMALLEN\\\",\\\"provincia\\\":\\\"MENDOZA\\\"}\\n\\n**Example 15:**\\nInput: 'BOEDO 2362 B° DEL CARMEN - BUENOS AIRES - BUENOS AIRES'\\nnroop: 15\\nOutput:\\n{\\\"nroop\\\":15,\\\"calle\\\":\\\"BOEDO Bº DEL CARMEN\\\",\\\"nro\\\":\\\"2362\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"BUENOS AIRES\\\",\\\"provincia\\\":\\\"BUENOS AIRES\\\"}\\n\\n**Example 16:**\\nInput: 'AV CARBALLO TORRE 2 - ROSARIO - SANTA FE'\\nnroop: 16\\nOutput:\\n{\\\"nroop\\\":16,\\\"calle\\\":\\\"AV CARBALLO TORRE 2\\\",\\\"nro\\\":\\\"\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"ROSARIO\\\",\\\"provincia\\\":\\\"SANTA FE\\\"}\\n\\n**Example 17:**\\nInput: 'MZNA:27 A CASA:18 S/N B° SAN PEDRO - JUJUY - JUJUY'\\nnroop: 17\\nOutput:\\n{\\\"nroop\\\":17,\\\"calle\\\":\\\"MZ 27 A Bº SAN PEDRO\\\",\\\"nro\\\":\\\"18\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"JUJUY\\\",\\\"provincia\\\":\\\"JUJUY\\\"}\\n\\n**Example 18:**\\nInput: 'EL JARILLAL CHACRA MONTE - GENERAL ROCA - RIO NEGRO'\\nnroop: 18\\nOutput:\\n{\\\"nroop\\\":18,\\\"calle\\\":\\\"EL JARILLAL CHACRA MONTE\\\",\\\"nro\\\":\\\"\\\",\\\"piso\\\":\\\"\\\",\\\"depto\\\":\\\"\\\",\\\"localidad\\\":\\\"GENERAL ROCA\\\",\\\"provincia\\\":\\\"RIO NEGRO\\\"}\\n\\n---\\n\\nAnalyze this address and extract components:\\n\\nINPUT:\\nnroop={{$json.object[0].json.nroop}}\\ndomicilio='{{$json.object[0].json.domicilio}}'\\n\\nReturn ONLY the JSON object with no additional text, explanations, or formatting.\"\n    }\n  ],\n  \"max_tokens\": 512\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        448
+      ],
+      "id": "b13660a0-8adf-4265-8e9e-7b8f0ebe066e",
+      "name": "JSON IA",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "6o32sTToi8xKMN6y",
+          "name": "Header Auth account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener el string JSON del content\nconst content = $input.first().json.choices[0].message.content;\ntry {\n  const parsedData = JSON.parse(content);\n\n  return [{\n    json: parsedData\n  }];\n  \n} catch (error) {\n  \n  return [{\n    json: {\n      error: 'Error parseando JSON',\n      message: error.message,\n      content: content\n    }\n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        448
+      ],
+      "id": "c1c887a1-0c21-4b4f-8ea2-af45a7fff9d8",
+      "name": "Parse"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE prendarios.ex_titulos_dni SET calle='{{ $json.calle }}', nro='{{ $json.nro }}', piso='{{ $json.piso }}', depto='{{ $json.depto }}', localidad='{{ $json.localidad }}', provincia='{{ $json.provincia }}', estado='PROCESADO' WHERE nroop={{ $json.nroop }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        640,
+        448
+      ],
+      "id": "17cfd9c6-1c94-44ba-8940-6c0ceb635138",
+      "name": "Actualizar registro | Procesado",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "JSON IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Ex pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ex pendientes": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON IA": {
+      "main": [
+        [
+          {
+            "node": "Parse",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse": {
+      "main": [
+        [
+          {
+            "node": "Actualizar registro | Procesado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar registro | Procesado": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "04a3d2f1-74ee-461b-9e4d-d3e59e9d7d46",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
+  },
+  "id": "1KHQxTuG3FAO32ow",
+  "tags": []
+}
