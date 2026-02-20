@@ -1,0 +1,787 @@
+{
+  "name": "Sincronizador Email, Categoria Onboarding - Prendarios",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -112,
+        864
+      ],
+      "id": "69ae7d13-b91c-4678-aa10-c6c72bf5ab0a",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        336,
+        16
+      ],
+      "id": "cea52c84-2401-4b33-83f4-8b2cb0170bdc",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    a.codigo AS codigo_agencia,\n    a.nombre AS nombre_agencia,\n    a.EmailEquipo AS email_prendarios,\n    bc.email AS email_onboarding,\n    b.name AS nombre_onboarding,\n    b.id AS business_id,\n    b.created_at\nFROM prendarios.Agencias a\nLEFT JOIN onboarding.businesses b \n       ON a.codigo = b.code\nLEFT JOIN onboarding.business_contacts bc \n       ON bc.business_id = b.id\n       AND bc.type_id = 5  -- contacto de tipo \"equipo\"\nWHERE \n    (\n        a.EmailEquipo <> bc.email\n        OR (a.EmailEquipo IS NULL AND bc.email IS NOT NULL)\n        OR (a.EmailEquipo IS NOT NULL AND bc.email IS NULL)\n    )\n    AND b.disabled_at IS NULL;  -- creadas en los últimos 90 días",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        128,
+        16
+      ],
+      "id": "c4d648c1-771b-4d29-b307-8009852a8042",
+      "name": "Diferencias de correo Onboarding - Prendarios",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.business_contacts bc\nJOIN onboarding.businesses b \n    ON bc.business_id = b.id\nSET bc.email = \"{{ $('Obtener agencia').item.json.results[0].properties.equipo_email }}\"\nWHERE b.code = {{ $('Loop Over Items').item.json.codigo_agencia }}\n  AND bc.type_id = 5; ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1008,
+        16
+      ],
+      "id": "a5fba1d2-2158-4b79-bd33-3719b60bcec9",
+      "name": "Businesses_contact",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE prendarios.Agencias a\nSET a.EmailEquipo = \"{{ $('Obtener agencia').item.json.results[0].properties.equipo_email }}\"\nWHERE a.codigo = {{ $('Loop Over Items').item.json.codigo_agencia }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1232,
+        16
+      ],
+      "id": "2a129ccd-826c-4229-81bb-14a7ddbc722e",
+      "name": "Agencia.EmailEquipo",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO validaciones_n8n  \n  (campo_cambiado, valor, email_usuario, id_usuario, codigo_agencia, fecha_cambio, fecha_procesado, estado_proceso, destino)\nVALUES \n  (\n    'EmailAgenciaPrendario',\n    '{{ $(\"Loop Over Items\").item.json.email_onboarding }}',\n    '{{ $(\"Loop Over Items\").item.json.email_onboarding }}',\n    '{{ $(\"Loop Over Items\").item.json.business_id }}',\n    {{ $(\"Loop Over Items\").item.json.codigo_agencia }},\n    NOW(),\n  NOW(),\n    'success',\n    'DB'\n  );\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1456,
+        144
+      ],
+      "id": "0d237ca3-9546-426f-a0fa-bd77b995f09b",
+      "name": "Log",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"codigo\",\n          \"operator\": \"EQ\",\n          \"value\": {{ $json.codigo_agencia }}\n        }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"equipo_email\"\n  ],\n  \"limit\": 1\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        -80
+      ],
+      "id": "a78fbc47-8483-4b5c-a629-43fe83af826d",
+      "name": "Obtener agencia",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Diferencias de contacto equipo entre onboarding y prendarios \n\nAl conseguir una diferencia consulta a Hubspot el correo para luego setear los valores.",
+        "height": 208,
+        "width": 384
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        64,
+        -496
+      ],
+      "typeVersion": 1,
+      "id": "c7e2a57b-c958-4c05-8bfa-b2d674ba1691",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a749bdf5-d42c-44a5-a9a9-43af9fb2860e",
+              "leftValue": "={{ !$json.results[0].properties.equipo_email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        784,
+        -80
+      ],
+      "id": "620efdc6-b3e3-4c0c-9abb-636df179a3f3",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.business_contacts bc\nJOIN onboarding.businesses b \n    ON bc.business_id = b.id\nSET bc.email = null\nWHERE b.code = {{ $('Loop Over Items').item.json.codigo_agencia }}\n  AND bc.type_id = 5; ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1008,
+        -368
+      ],
+      "id": "a24a5234-4c62-4893-a256-4a0b71b0c604",
+      "name": "Businesses_contact NULL",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE prendarios.Agencias a\nSET a.EmailEquipo = null\nWHERE a.codigo = {{ $('Loop Over Items').item.json.codigo_agencia }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1008,
+        -176
+      ],
+      "id": "9b474d6b-5465-43fe-a73e-7844f0edf1c9",
+      "name": "Agencia.EmailEquipo NULL",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    a.Codigo AS codigo_agencia,\n    a.nombre AS nombre_agencia,\n    b.id AS business_id,\n    b.category_id AS onboarding_category_id,\n    c.name AS onboarding_category_name,\n    c.net_id AS onboarding_net_id,\n    a.CategoriaTabla AS prendarios_categoria_tabla,\n    b.created_at AS fecha_creacion\nFROM prendarios.Agencias a\nINNER JOIN onboarding.businesses b \n    ON a.Codigo = b.code\nLEFT JOIN onboarding.categories c \n    ON b.category_id = c.id\nWHERE \n    b.disabled_at IS NULL\n    AND b.created_at >= '2016-01-01'\n    AND (\n        a.CategoriaTabla <> c.net_id\n        OR (a.CategoriaTabla IS NULL AND c.net_id IS NOT NULL)\n        OR (a.CategoriaTabla IS NOT NULL AND c.net_id IS NULL)\n    )\nORDER BY b.created_at DESC;\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        112,
+        736
+      ],
+      "id": "735245a1-cd17-4aef-b536-a2ba8959dfdc",
+      "name": "Diferencias de Categorías",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"codigo\",\n          \"operator\": \"EQ\",\n          \"value\": \"{{ $json.codigo_agencia }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"categoria_final\"\n  ],\n  \"limit\": 1\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        480
+      ],
+      "id": "b129cdc8-e144-4e44-9c97-95a2154b8433",
+      "name": "Obtener categoría de HubSpot",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "validar-categoria-existe",
+              "leftValue": "={{ $json.results[0].properties.categoria_final }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        784,
+        480
+      ],
+      "id": "07277384-e650-432f-adbf-a07f467c0f26",
+      "name": "¿Categoría en HubSpot?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, net_id \nFROM onboarding.categories \nWHERE id = {{ $('Obtener categoría de HubSpot').item.json.results[0].properties.categoria_final }}\nLIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1008,
+        432
+      ],
+      "id": "9c731127-efa7-4197-a3e0-6f7a05e02911",
+      "name": "Obtener net_id de categoría",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.businesses\nSET category_id = {{ $json.id }}\nWHERE code = {{ $('Loop Over Items1').item.json.codigo_agencia }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1232,
+        432
+      ],
+      "id": "7008194d-59a7-43b8-8fdf-2a5742741289",
+      "name": "Update Onboarding.businesses",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE prendarios.Agencias\nSET CategoriaTabla = {{ $('Obtener net_id de categoría').item.json.net_id }}\nWHERE Codigo = {{ $('Loop Over Items1').item.json.codigo_agencia }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1456,
+        432
+      ],
+      "id": "19011467-4abb-42be-be2b-8994ba68ce2b",
+      "name": "Update Prendarios.Agencias",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO validaciones_n8n  \n  (campo_cambiado, valor, email_usuario, id_usuario, codigo_agencia, fecha_cambio, fecha_procesado, estado_proceso, destino)\nVALUES \n  (\n    'SincronizacionCategoria_ Onbo.-Pren.',\n    '{{ $(\"Loop Over Items\").item.json.email_onboarding }}',\n    '{{ $(\"Loop Over Items\").item.json.email_onboarding }}',\n    '{{ $(\"Loop Over Items\").item.json.business_id }}',\n    {{ $(\"Loop Over Items\").item.json.codigo_agencia }},\n    NOW(),\n  NOW(),\n    'success',\n    'DB'\n  );\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1680,
+        544
+      ],
+      "id": "2c5d1134-d77f-4be0-861b-621cf543f3ac",
+      "name": "Log de cambio",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO validaciones_n8n  \n  (campo_cambiado, valor, email_usuario, codigo_agencia, fecha_cambio, fecha_procesado, estado_proceso, destino, observaciones)\nVALUES \n  (\n    'categoria_final',\n    'Sin categoría en HubSpot',\n    'sistema@decreditos.com',\n    {{ $('Loop Over Items').item.json.codigo_agencia }},\n    NOW(),\n    NOW(),\n    'warning',\n    'HubSpot',\n    CONCAT('Agencia sin categoria_final. HubSpot ID: ', {{ $('Loop Over Items').item.json.hubspot_company_id }})\n  );",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1008,
+        624
+      ],
+      "id": "8d8bf652-9942-47c9-9d58-9507bd73b08a",
+      "name": "Log sin categoría",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        336,
+        736
+      ],
+      "id": "f0518657-f078-4963-a479-dcf1a218e295",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT Codigo\nFROM prendarios.Creditos cre\nWHERE cre.FechaLiquidacion >= DATE_SUB(NOW(), INTERVAL 11 MINUTE);\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        112,
+        1120
+      ],
+      "id": "4eac3b13-0d8c-4921-a413-6c84a39a667c",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://validaciones.decreditos.com/api/validar-cuil",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        112,
+        928
+      ],
+      "id": "567cebcc-bf25-4a54-9ee7-4a5fe0ae2512",
+      "name": "validaciones.decreditos.com/api/validar-cuil"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        336,
+        1120
+      ],
+      "id": "dce10a83-b80e-475a-b888-eefa0cc271ef",
+      "name": "Loop Over Items2"
+    },
+    {
+      "parameters": {
+        "url": "=https://intranet.decreditos.com/hs/hubspot_deals.php?operation={{ $json.Codigo }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        1120
+      ],
+      "id": "54cb5ff5-2971-4d2b-a3df-8170e0424b5f",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Diferencias de correo Onboarding - Prendarios",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Diferencias de Categorías",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "validaciones.decreditos.com/api/validar-cuil",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Obtener agencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Diferencias de correo Onboarding - Prendarios": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Businesses_contact": {
+      "main": [
+        [
+          {
+            "node": "Agencia.EmailEquipo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agencia.EmailEquipo": {
+      "main": [
+        [
+          {
+            "node": "Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener agencia": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Businesses_contact NULL",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Agencia.EmailEquipo NULL",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Businesses_contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Businesses_contact NULL": {
+      "main": [
+        []
+      ]
+    },
+    "Agencia.EmailEquipo NULL": {
+      "main": [
+        []
+      ]
+    },
+    "Diferencias de Categorías": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener categoría de HubSpot": {
+      "main": [
+        [
+          {
+            "node": "¿Categoría en HubSpot?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Categoría en HubSpot?": {
+      "main": [
+        [
+          {
+            "node": "Log sin categoría",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Obtener net_id de categoría",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener net_id de categoría": {
+      "main": [
+        [
+          {
+            "node": "Update Onboarding.businesses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Onboarding.businesses": {
+      "main": [
+        [
+          {
+            "node": "Update Prendarios.Agencias",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Prendarios.Agencias": {
+      "main": [
+        [
+          {
+            "node": "Log de cambio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log de cambio": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log sin categoría": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Obtener categoría de HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items2": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "19ecb6e1-a926-40ef-8883-62060c19dd04",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
+  },
+  "id": "ODrRjnygqvqIKlhU",
+  "tags": []
+}

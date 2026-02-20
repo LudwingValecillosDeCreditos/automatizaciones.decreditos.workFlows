@@ -1,0 +1,1629 @@
+{
+  "name": "HUBSPOT→  DB",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    id,\n    campo_cambiado AS propertyName,\n    valor AS propertyValue,\n    codigo_agencia AS objectId,\n    codigo_agencia,\n    email_usuario\nFROM onboarding.validaciones_n8n\nWHERE destino = 'DB'\n  AND estado_proceso IN ('pending', 'error_request')\nLIMIT 10;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1312,
+        3216
+      ],
+      "id": "5106119b-c9d6-4cc7-a676-d507a5a012bb",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1536,
+        3216
+      ],
+      "id": "d0a96104-6cdd-449e-8802-cb62891a341a",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1072,
+        2768
+      ],
+      "id": "452d56b2-83bc-439a-b1e6-43384b7cc0d8",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT MAX(a.id) AS address_id, b.id AS business_id\nFROM onboarding.addresses a\nJOIN onboarding.businesses b ON a.addressable_id = b.id\nWHERE b.code = {{ $('Loop Over Items').item.json.codigo_agencia }}\nGROUP BY b.id\nLIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        368,
+        3552
+      ],
+      "id": "6a8bf645-dad5-493f-abc7-9e415ba01195",
+      "name": "Get Address ID1",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "update_onboarding",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ca3d3f32-8643-4f29-b23b-c7a959427ef3"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Onboarding"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "7877ecbe-96e4-4b61-9611-4ce1c37f4822",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "update_equipo",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Es Update Equipo?"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9d122f3b-ddbb-4947-9d12-a6224d9adcbc",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "update_provincia",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Provincia"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b831ce04-2d94-4944-b3af-4871ce2507e6",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "update_name",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Name"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "6a455a2c-8041-4f6a-9053-d264a9cb3cca",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "sync_platform",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Accesos"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d8eb20e0-b52f-40cf-acd2-460dd363c4e8",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "contactActivo",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Contacto activo"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        -640,
+        3600
+      ],
+      "id": "d2396baf-71b5-4467-b3f0-fd34cd9efad8",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE prendarios.Agencias \nSET CategoriaTabla = {{ $json.id_cat }}\nWHERE codigo = '{{ $('Loop Over Items').item.json.codigo_agencia }}';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        928,
+        2240
+      ],
+      "id": "bbeeb092-de9c-4070-a78e-f7de0159789b",
+      "name": "Update Prendarios Categoria",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT net_id AS id_cat FROM onboarding.categories WHERE id = {{ $('Switch').item.json.queryOnboarding.valor }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        704,
+        2368
+      ],
+      "id": "05c5882d-f978-4dcf-b154-81f9ce417be2",
+      "name": "Get Category Net ID",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE prendarios.Agencias \nSET vendedor = '{{ $json.net_id }}'\nWHERE codigo = '{{ $('Loop Over Items').item.json.codigo_agencia }}';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        1920
+      ],
+      "id": "3a4bc2d4-7b67-4abf-840a-fddc9be261d5",
+      "name": "Update Prendarios Vendedor",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT net_id FROM onboarding.sellers WHERE id = {{ $('Switch').item.json.queryOnboarding.valor }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        896,
+        1984
+      ],
+      "id": "249d1d0f-20dd-4e2c-bea5-5e76c76dfc6a",
+      "name": "Get Seller Net ID",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.businesses\nSET {{ $json.queryOnboarding.campo }} = {{ $json.queryOnboarding.valor === null ? 'NULL' : (typeof $json.queryOnboarding.valor === 'string' ? \"'\" + $json.queryOnboarding.valor + \"'\" : $json.queryOnboarding.valor) }}\nWHERE code = '{{ $('Loop Over Items').item.json.codigo_agencia }}'\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        32,
+        2368
+      ],
+      "id": "ea1a502e-1b57-4f80-aeb7-00505f8ea512",
+      "name": "Update Onboarding3",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO onboarding.business_contacts \n(business_id, name, email, type_id, created_at, updated_at) \nVALUES (\n  {{ $('Check Contact Equipo').item.json.id }},               -- ID del negocio\n  '{{ $('Procesar Datos').item.json.queryExtra.contact_name }}',  -- Nombre del contacto\n  '{{ $('Procesar Datos').item.json.queryExtra.contact_email }}', -- Email del contacto\n  {{ $('Procesar Datos').item.json.queryExtra.contact_type }},    -- Tipo de contacto\n  NOW(),                                                      -- Fecha de creación\n  NOW()                                                       -- Fecha de actualización\n);\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        3232
+      ],
+      "id": "6c03682c-2b9f-451e-9902-3fd196daaf5d",
+      "name": "Insert Contact Equipo1",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE onboarding.business_contacts bc \nJOIN onboarding.businesses b ON bc.business_id = b.id \nSET bc.name = '{{ $('Procesar Datos1').item.json.queryExtra.contact_name }}',\n    bc.email = '{{ $('Procesar Datos1').item.json.queryExtra.contact_email }}',\n    bc.updated_at = NOW()\nWHERE b.code = '{{ $('Loop Over Items').item.json.codigo_agencia }}' \nAND bc.type_id = {{ $('Procesar Datos1').item.json.queryExtra.contact_type }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        3040
+      ],
+      "id": "0bf1ce8a-6481-4e4b-825a-20a20f6154ef",
+      "name": "Update Contact Equipo1",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.existe_contacto }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              },
+              "id": "378a8044-a4dc-422e-a83c-d9eea6ba73a6"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        3136
+      ],
+      "id": "fbe74f16-8da1-4414-b597-e07d97d8920c",
+      "name": "Contact Existe?1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT b.id,\n       IF(ISNULL(bc.business_id), 0, 1) AS existe_contacto\nFROM onboarding.businesses b \nLEFT JOIN onboarding.business_contacts bc \n  ON b.id = bc.business_id \n  AND bc.type_id = {{ $('Procesar Datos1').item.json.queryExtra.contact_type }}\nWHERE b.code = '{{ $('Loop Over Items').item.json.codigo_agencia }}' \nLIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        464,
+        3072
+      ],
+      "id": "6ba4e3d3-e3d8-4dc4-866e-f4a633c18d5b",
+      "name": "Check Contact Equipo1",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE prendarios.Agencias \nSET EmailEquipo = '{{ $json.queryPrendarios.valor }}'\nWHERE codigo = '{{ $('Loop Over Items').item.json.codigo_agencia }}';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        32,
+        2992
+      ],
+      "id": "a11fe39e-e7be-4450-8736-1b6c389695ed",
+      "name": "Update Email Equipo1",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Switch').item.json.campo_hubspot }}",
+              "rightValue": "categoria_final",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "id": "4e2089d3-fa4f-408e-b51d-d1076e692b63"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        416,
+        2320
+      ],
+      "id": "969931ad-6c17-46df-bb82-d1a612977b91",
+      "name": "Necesita Category?1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Switch').item.json.needsSellerId }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              },
+              "id": "79293083-41c3-46e1-bda5-f9d00caa925c"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        256,
+        1920
+      ],
+      "id": "af25aa7e-ab6a-4a8c-aa48-ad50d6bd14ae",
+      "name": "Necesita Seller?1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🧠 Mapeo completo de equivalencias HubSpot → Base de datos\n\nconst STATUS_MAP = {\n  'AA': 1, 'SA': 2, 'SC': 3, 'NAH': 4, 'NA': 5, 'NAN': 6,\n};\n\nconst TRUST_MAP = {\n  'A': 1, 'B': 2, 'C': 3, 'D': 4\n};\n\nfunction vandedorFinal(vendedor){\n  let resultado;\nswitch (vendedor) {\n  case \"MDQ 1\":\n  case \"MDQ-1\":\n    resultado = 346;\n    break;\n\n  case \"MDQ 2\":\n    resultado = 348;\n    break;\n\n  case \"MDQ 3\":\n    resultado = 349;\n    break;\n}\nreturn resultado;\n\n}\nconst payload = $input.first().json; // Usamos $input.first() para asegurar lectura correcta\nif (!payload.propertyName || payload.propertyValue === undefined || payload.propertyValue === null) {\n  throw new Error('Registro inválido: faltan columnas esperadas. [line 33]');\n}\n\nconst campoHubspot = payload.propertyName;\nlet valor = payload.propertyValue;\nconst companyId = payload.objectId;\nconst ejecutivoEmail = payload.ejecutivoEmail || null;\n\n// Limpiar strings\nif (typeof valor === 'string') valor = valor.trim();\n\n// Variables de control\nlet accion = 'update_onboarding';\nlet queryOnboarding = null;\nlet queryPrendarios = null;\nlet queryExtra = null;\nlet needsSellerId = false;\nlet needsCategoryId = false;\nlet needsProvinceId = false;\n\n// 📘 Lógica según campo de HubSpot\nswitch(campoHubspot) {\n  case 'description':\n    queryOnboarding = { campo: 'type_description', valor: valor };\n    break;\n\n  case 'estado_agencies':\n  let statusIdFinal;\n\n  if (!isNaN(valor)) {\n    statusIdFinal = Number(valor);\n  } else {\n    statusIdFinal = STATUS_MAP[valor];\n    if (!statusIdFinal) {\n      throw new Error(`Estado no reconocido en STATUS_MAP: ${valor}`);\n    }\n  }\n\n  queryOnboarding = { campo: 'status_id', valor: statusIdFinal };\n  break;\n\n\n  case 'vendedor_final':\n    queryOnboarding = { campo: 'seller_id', valor: typeof valor === \"number\" ? Number(valor) : vandedorFinal(valor)  };\n    needsSellerId = true;\n    break;\n\n  case 'categoria_final':\n    queryOnboarding = { campo: 'category_id', valor: valor };\n    break;\n\n  case 'subzona_final':\n    queryOnboarding = { campo: 'sub_zone_id', valor: Number(valor) };\n    break;\n\n  case 'confianza_comercial':\n    queryOnboarding = { campo: 'commercial_trust_level_id', valor: TRUST_MAP[valor] };\n    break;\n\n  case 'confianza_gerente':\n    queryOnboarding = { campo: 'manager_trust_level_id', valor: TRUST_MAP[valor] };\n    break;\n\n  case 'confianza_supervisor':\n    queryOnboarding = { campo: 'supervisor_trust_level_id', valor: TRUST_MAP[valor] };\n    break;\n\n  case 'confianza_consolidada':\n    queryOnboarding = { campo: 'trust_level_id', valor: TRUST_MAP[valor] };\n    break;\n\n  case 'empresa_habilitada':\n    const disabledAt = valor !== '1' ? new Date().toISOString().slice(0, 19).replace('T', ' ') : null;\n    queryOnboarding = { campo: 'disabled_at', valor: disabledAt };\n    break;\n\n  case 'onboarding_finalizado':\n    const readyAt = valor === 'true' ? new Date().toISOString().slice(0, 19).replace('T', ' ') : null;\n    queryOnboarding = { campo: 'ready_at', valor: readyAt };\n    break;\n\n  // --- PERMISOS DE AGENCIA (Business Platform) ---\n  case 'habilitada_plataforma_agencies':\n    accion = 'sync_platform';\n    queryExtra = {\n      platform_id: 2, // Agencies es ID 2\n      enabled: valor == \"1\"\n    };\n    break;\n\n  case 'habilitada_plataforma_insurance':\n    accion = 'sync_platform';\n    queryExtra = {\n      platform_id: 3, // Insurance es ID 3\n      enabled: valor == \"1\"\n    };\n    break;\n\n  // --- ROLES DE USUARIO (User Roles) ---\n  case 'usuario_rol_plataforma_insurance':\n    accion = 'sync_platform';\n    queryExtra = {\n      platform_id: 3, // Insurance es ID 3 (Corregido, tenías 2)\n      enabled: valor == \"1\"\n    };\n    break;\n    \n  // ✅ ESTE ES EL QUE FALTABA Y DABA ERROR\n  case 'usuario_rol_plataforma_agencies':\n    accion = 'sync_platform';\n    queryExtra = {\n      platform_id: 2, // Agencies es ID 2\n      enabled: valor == \"1\"\n    };\n    break;\n\n  case 'equipo_email':\n    accion = 'update_equipo';\n    queryPrendarios = { campo: 'EmailEquipo', valor: valor };\n    queryExtra = { contact_type: 5, contact_name: 'Equipo', contact_email: valor };\n    break;\n\n  case 'direccion_provincia':\n    accion = 'update_provincia';\n    queryExtra = { campo_address: 'province_id', valor: valor };\n    needsProvinceId = true;\n    break;\n\n  case 'name':\n    accion = 'update_name';\n    queryOnboarding = { campo: 'name', valor: valor };\n    queryPrendarios = { campo: 'nombre', valor: valor };\n    break;\n    case \"activo\":\n    accion = \"contactActivo\";\n    queryExtra = { value: valor };\n    break;\n\n     // --- CAMPOS DE DIRECCIÓN ---\n  case 'direccion_calle':\n    accion = 'update_provincia';\n    queryExtra = { campo_address: 'street', valor: valor };\n    break;\n\n  case 'direccion_codigo_postal':\n    accion = 'update_provincia';\n    queryExtra = { campo_address: 'postal_code', valor: valor };\n    break;\n\n  case 'direccion_localidad':\n    accion = 'update_provincia';\n    queryExtra = { campo_address: 'locality', valor: valor };\n    break;\n\n  case 'direccion_numero':\n    accion = 'update_provincia';\n    queryExtra = { campo_address: 'number', valor: valor };\n    break;\n\n  case 'direccion_piso':\n    accion = 'update_provincia';\n    queryExtra = { campo_address: 'floor', valor: valor };\n    break;\n  default:\n    throw new Error(`Campo HubSpot no procesado: ${campoHubspot} [line 185]`);\n}\n\n// ✅ Resultado final\nreturn [{\n  json: {\n    hubspot_company_id: companyId,\n    campo_hubspot: campoHubspot,\n    accion: accion,\n    queryOnboarding: queryOnboarding,\n    queryPrendarios: queryPrendarios,\n    queryExtra: queryExtra,\n    needsSellerId: needsSellerId,\n    needsCategoryId: needsCategoryId,\n    needsProvinceId: needsProvinceId,\n    ejecutivoEmail: ejecutivoEmail,\n    emailUsuario: payload.email_usuario, // Usar payload directo es más seguro\n    idRegistro: payload.id,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        2784
+      ],
+      "id": "cc9d63ab-822b-4d48-ad4d-20ced0aeed31",
+      "name": "Procesar Datos1",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8e5aedc6-762b-4884-adb2-3ff1f3820745",
+              "leftValue": "={{ $json.address_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        3616
+      ],
+      "id": "daaa74ca-d723-42b3-a949-b930b8b627fb",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.validaciones_n8n\nSET estado_proceso = 'error_request',\n    fecha_procesado = NOW()\nWHERE id = {{ $('Loop Over Items').item.json.id }};\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1568,
+        2800
+      ],
+      "id": "6ffe5e5e-525f-4625-8625-dffd8abb216a",
+      "name": "Update status ERROR",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Yxtx97R2cXE7HJnk",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/Yxtx97R2cXE7HJnk",
+          "cachedResultName": "NotificarErrores"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1792,
+        2800
+      ],
+      "id": "ff481538-38d6-44c8-974b-9dff313f10d2",
+      "name": "Call 'NotificarErrores'",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.businesses\nSET name = '{{ $('Loop Over Items').item.json.propertyValue }}'\nWHERE code = '{{ $('Loop Over Items').item.json.codigo_agencia }}'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        896,
+        3952
+      ],
+      "id": "4ef695c5-48b7-43a5-bca9-e850451ac426",
+      "name": "Update Onboarding Name",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE prendarios.Agencias \nSET nombre = '{{ $('Loop Over Items').item.json.propertyValue }}'\nWHERE codigo = '{{ $('Loop Over Items').item.json.codigo_agencia }}'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        4128
+      ],
+      "id": "8c7e7e8c-1d56-4423-9488-e0f4df3d9f57",
+      "name": "Execute a SQL query3",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        4576
+      ],
+      "id": "c0844e1b-c1c9-4223-8ee6-2890e1e49e55",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    b.id as business_id,\n    bp.platform_id\nFROM onboarding.businesses b\nLEFT JOIN onboarding.business_platform bp \n    ON bp.business_id = b.id\nWHERE b.code = '{{ $('Loop Over Items').item.json.codigo_agencia }}';",
+        "options": {}
+      },
+      "id": "68e6c3b8-b8e1-4a7a-b526-46c83eaf23c0",
+      "name": "Get Business y Permisos existentes1",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -192,
+        4480
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-insert",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "execute",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "93480b25-299f-4cdd-ad24-b0c0f25e2f18",
+      "name": "¿Se debe insertar?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        464,
+        4576
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-business",
+              "leftValue": "={{ $json.campo_hubspot }}",
+              "rightValue": "habilitada_plataforma_",
+              "operator": {
+                "type": "string",
+                "operation": "contains",
+                "name": "filter.operator.contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "de76bae7-af0e-4cb9-b2f5-a09d4d0191f3",
+      "name": "Router - ¿Es Agencia o Usuario?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -416,
+        4576
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. RECUPERAR DATOS DEL CONTEXTO\n// -------------------------------\nlet enabled = true;\ntry {\n  enabled = $('Router - ¿Es Agencia o Usuario?').first().json.queryExtra.enabled;\n  if (typeof enabled === 'string') enabled = (enabled === 'true');\n} catch(e) { \n  enabled = true; \n}\n\nlet hubspotField = '';\ntry {\n  hubspotField = $('Switch').first().json.campo_hubspot || $('Loop Over Items').item.json.campo_hubspot;\n} catch (e) {\n  hubspotField = '';\n}\n\n// 2. DEFINIR ID DEL ROL\n// ---------------------\nlet targetRoleId = null;\nif (hubspotField === 'usuario_rol_plataforma_insurance') {\n  targetRoleId = 3;\n} else if (hubspotField.includes('agencies')) {\n  targetRoleId = 2;\n}\n\nif (!targetRoleId) {\n  return { json: { action: 'none', reason: 'Rol no identificado' } };\n}\n\n// 3. ANALIZAR RESULTADOS DB\n// -------------------------\nconst existingRecords = $input.all();\nlet userId = null;\n\nif (existingRecords.length > 0 && existingRecords[0].json.user_id) {\n  userId = existingRecords[0].json.user_id;\n} else {\n  return { json: { action: 'none', reason: 'El usuario no existe en la DB (user_id null)' } };\n}\n\n// 4. VERIFICAR SI YA TIENE EL ROL\n// -------------------------------\nconst existingRoles = existingRecords.map(r => r.json.platform_role_id).filter(id => id !== null);\nconst alreadyExists = existingRoles.includes(targetRoleId);\n\n// 5. DECISIÓN FINAL (INSERT vs DELETE vs NONE)\n// -------------------------------------------\nlet action = 'none';\nlet query = '';\nlet reason = '';\n\nif (enabled === true) {\n    // CASO: DAR ROL\n    if (!alreadyExists) {\n        action = 'execute';\n        query = `INSERT INTO onboarding.platform_role_user (user_id, platform_role_id) VALUES (${userId}, ${targetRoleId});`;\n        reason = `Insertando rol ${targetRoleId} a usuario ${userId}`;\n    } else {\n        reason = `El usuario ya tiene el rol ${targetRoleId} (Enabled: True)`;\n    }\n} else {\n    // CASO: QUITAR ROL (Enabled = False)\n    if (alreadyExists) {\n        action = 'execute';\n        query = `DELETE FROM onboarding.platform_role_user WHERE user_id = ${userId} AND platform_role_id = ${targetRoleId};`;\n        reason = `Revocando rol ${targetRoleId} a usuario ${userId}`;\n    } else {\n        reason = `El usuario ya NO tiene el rol ${targetRoleId} (Enabled: False)`;\n    }\n}\n\nreturn {\n  json: {\n    action: action,\n    query: query,\n    reason: reason,\n    debug_enabled: enabled,\n    idRegistro: $('Switch').first().json.idRegistro\n  }\n};"
+      },
+      "id": "2b20fd23-7f09-4103-a0b1-e8b7747f7195",
+      "name": "Validar Lógica Usuario",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        32,
+        4672
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. OBTENER EL ESTADO ENABLED (TRUE/FALSE)\n// -----------------------------------------------------\n// Por defecto asumimos true si no viene definido, pero idealmente debe venir del Router\nlet enabled = true;\ntry {\n  enabled = $('Router - ¿Es Agencia o Usuario?').first().json.queryExtra.enabled;\n  // Asegurarnos que sea booleano\n  if (typeof enabled === 'string') enabled = (enabled === 'true');\n} catch (e) {\n  // Fallback si falla la lectura\n  enabled = true; \n}\n\n// 2. OBTENER EL ID DE DESTINO (PLATFORM_ID)\n// -----------------------------------------------------\nlet targetPlatformId = null;\nlet debugSource = \"\";\n\ntry {\n  const loopData = $('Loop Over Items').item.json;\n  if (loopData.queryExtra && loopData.queryExtra.platform_id) {\n    targetPlatformId = loopData.queryExtra.platform_id;\n    debugSource = \"Loop\";\n  } else if ($('Switch').item && $('Switch').item.json.queryExtra) {\n    targetPlatformId = $('Switch').item.json.queryExtra.platform_id;\n    debugSource = \"Switch Item\";\n  } else {\n    const switchFirst = $('Switch').first().json;\n    if (switchFirst.queryExtra && switchFirst.queryExtra.platform_id) {\n       targetPlatformId = switchFirst.queryExtra.platform_id;\n       debugSource = \"Switch First\";\n    }\n  }\n} catch (e) {\n  try {\n     const txt = $('Loop Over Items').item.json.campo_hubspot;\n     if (txt === 'habilitada_plataforma_agencies') targetPlatformId = 2;\n     if (txt === 'habilitada_plataforma_insurance') targetPlatformId = 3;\n  } catch(err) {}\n}\n\nif (!targetPlatformId) {\n  return { json: { action: 'none', reason: 'CRÍTICO: No se pudo encontrar el ID de plataforma.', debug_failed: true } };\n}\n\n// 3. ANALIZAR RESPUESTA DE LA DB\n// -----------------------------------------\nconst existingRecords = $input.all();\nlet businessId = null;\n\nif (existingRecords.length > 0 && existingRecords[0].json.business_id) {\n  businessId = existingRecords[0].json.business_id;\n} else {\n  return { json: { action: 'none', reason: 'No se encontró el business_id en la DB' } };\n}\n\n// 4. VERIFICAR EXISTENCIA ACTUAL\n// -------------------------\nconst existingIds = existingRecords\n  .map(r => r.json.platform_id)\n  .filter(id => id != null); \n\nconst alreadyExists = existingIds.includes(targetPlatformId);\n\n// 5. DECISIÓN FINAL (INSERT vs DELETE vs NONE)\n// -------------------------------------------\nlet action = 'none';\nlet query = '';\nlet reason = '';\n\nif (enabled === true) {\n    // CASO: SE REQUIERE DAR PERMISO\n    if (!alreadyExists) {\n        // No existe -> INSERTAR\n        action = 'execute'; // Cambié esto a 'execute' para que sirva para ambos casos en el IF\n        query = `INSERT INTO onboarding.business_platform (business_id, platform_id) VALUES (${businessId}, ${targetPlatformId});`;\n        reason = `Insertando permiso ${targetPlatformId} a agencia ${businessId}`;\n    } else {\n        // Ya existe -> NO HACER NADA\n        reason = `La agencia ya tiene el permiso ${targetPlatformId} (Enabled: True)`;\n    }\n} else {\n    // CASO: SE REQUIERE QUITAR PERMISO (Enabled = False)\n    if (alreadyExists) {\n        // Existe -> BORRAR\n        action = 'execute';\n        query = `DELETE FROM onboarding.business_platform WHERE business_id = ${businessId} AND platform_id = ${targetPlatformId};`;\n        reason = `Revocando permiso ${targetPlatformId} a agencia ${businessId}`;\n    } else {\n        // No existe -> NO HACER NADA\n        reason = `La agencia ya NO tiene el permiso ${targetPlatformId} (Enabled: False)`;\n    }\n}\n\nreturn {\n  json: {\n    action: action,\n    query: query,\n    reason: reason,\n    debug_enabled: enabled,\n    idRegistro: $('Switch').first().json.idRegistro\n  }\n};"
+      },
+      "id": "09c5973a-2498-4be6-9e28-08e8afbf0fac",
+      "name": "Validar Lógica Agencia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        32,
+        4480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT u.id as user_id, pru.platform_role_id FROM onboarding.users u LEFT JOIN onboarding.platform_role_user pru ON pru.user_id = u.id WHERE u.email = '{{ $json.emailUsuario }}';",
+        "options": {}
+      },
+      "id": "1ee7252d-5f48-42dd-add4-744e587ea3fd",
+      "name": "Get User y Roles Existentes2",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -192,
+        4672
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.users\nSET disabled_at = {{ $json.queryExtra.value === \"1\" ? \"NULL\" : \"NOW()\" }}\nWHERE email = \"{{ $json.emailUsuario }}\";\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        4320
+      ],
+      "id": "f1f8da9c-470a-433e-9c91-b081156cb6a5",
+      "name": "HS-Contact: Activo",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "id": "e129fd8c-aa71-489c-9937-9f22535d96c9",
+      "name": "Ejecutar INSERT",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        896,
+        4672
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.validaciones_n8n\nSET estado_proceso = 'success',\n    fecha_procesado = NOW()\nWHERE id = {{ $('Loop Over Items').item.json.id }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1344,
+        1456
+      ],
+      "id": "1e350d9c-6b58-4fae-aaef-ab31419a5447",
+      "name": "Succes",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        592,
+        1792
+      ],
+      "id": "1f178c7a-089b-4e21-be76-1aef9f9fb33d",
+      "name": "No Operation, do nothing1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "50c44e7a-dbd1-41b9-903e-c09c3e2d0289",
+              "leftValue": "={{ $('Loop Over Items').item.json.propertyName }}",
+              "rightValue": "empresa_habilitada",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "5ad42f32-b259-4816-a681-f5b3c737d67d",
+              "leftValue": "={{ $('Loop Over Items').item.json.propertyValue }}",
+              "rightValue": "1",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        1792
+      ],
+      "id": "9c2d7cec-59bb-44d0-ba31-ed9ff5d86960",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://automatizaciones.decreditos.com/webhook/sincroAgencia",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"code\" : {{ $('Loop Over Items').item.json.codigo_agencia }}\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        1648
+      ],
+      "id": "19434a3d-8cc9-47e9-92d8-191b8335ddb1",
+      "name": "Sincronizador 3",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.addresses\nSET {{ $('Switch').item.json.queryExtra.campo_address }} = {{ typeof $('Switch').item.json.queryExtra.valor === 'number' ? $('Switch').item.json.queryExtra.valor : \"'\" + $('Switch').item.json.queryExtra.valor + \"'\" }},\n    updated_at = NOW()\nWHERE addressable_id = {{ $json.business_id }}\n  AND addressable_type = 'App\\\\Models\\\\Business';\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        896,
+        3648
+      ],
+      "id": "27f0c626-5476-48fb-b712-c3cc1016d007",
+      "name": "Update Address Campo Dinámico",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueErrorOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Procesar Datos1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Address ID1": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Update Onboarding3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Email Equipo1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Address ID1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Onboarding Name",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Router - ¿Es Agencia o Usuario?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HS-Contact: Activo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Prendarios Categoria": {
+      "main": [
+        [
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Category Net ID": {
+      "main": [
+        [
+          {
+            "node": "Update Prendarios Categoria",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Prendarios Vendedor": {
+      "main": [
+        [
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Seller Net ID": {
+      "main": [
+        [
+          {
+            "node": "Update Prendarios Vendedor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Onboarding3": {
+      "main": [
+        [
+          {
+            "node": "Necesita Category?1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Necesita Seller?1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Contact Equipo1": {
+      "main": [
+        [
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Contact Equipo1": {
+      "main": [
+        [
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact Existe?1": {
+      "main": [
+        [
+          {
+            "node": "Update Contact Equipo1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert Contact Equipo1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Contact Equipo1": {
+      "main": [
+        [
+          {
+            "node": "Contact Existe?1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Email Equipo1": {
+      "main": [
+        [
+          {
+            "node": "Check Contact Equipo1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Necesita Category?1": {
+      "main": [
+        [
+          {
+            "node": "Get Category Net ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Necesita Seller?1": {
+      "main": [
+        [
+          {
+            "node": "Get Seller Net ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Datos1": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Update Address Campo Dinámico",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update status ERROR": {
+      "main": [
+        [
+          {
+            "node": "Call 'NotificarErrores'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Onboarding Name": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query3": {
+      "main": [
+        [
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Operation, do nothing": {
+      "main": [
+        [
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Business y Permisos existentes1": {
+      "main": [
+        [
+          {
+            "node": "Validar Lógica Agencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Se debe insertar?1": {
+      "main": [
+        [
+          {
+            "node": "Ejecutar INSERT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router - ¿Es Agencia o Usuario?": {
+      "main": [
+        [
+          {
+            "node": "Get Business y Permisos existentes1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get User y Roles Existentes2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Lógica Usuario": {
+      "main": [
+        [
+          {
+            "node": "¿Se debe insertar?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Lógica Agencia": {
+      "main": [
+        [
+          {
+            "node": "¿Se debe insertar?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User y Roles Existentes2": {
+      "main": [
+        [
+          {
+            "node": "Validar Lógica Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HS-Contact: Activo": {
+      "main": [
+        [
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar INSERT": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Succes": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'NotificarErrores'": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Operation, do nothing1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Sincronizador 3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sincronizador 3": {
+      "main": [
+        [
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Address Campo Dinámico": {
+      "main": [
+        [
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update status ERROR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b696a8d5-6099-4425-aa48-ba8d7aef597c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
+  },
+  "id": "Yi2t2WsDB1NSBqpo",
+  "tags": []
+}

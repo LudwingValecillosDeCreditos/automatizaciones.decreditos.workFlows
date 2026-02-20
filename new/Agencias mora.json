@@ -6,7 +6,7 @@
         "rule": {
           "interval": [
             {
-              "triggerAtHour": 7,
+              "triggerAtHour": 8,
               "triggerAtMinute": 50
             }
           ]
@@ -242,7 +242,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "82fa454d-9d43-43b0-b2ae-195e93823710",
+  "versionId": "f9d6068a-4bd4-46c8-a705-2efffc97208a",
   "meta": {
     "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
   },

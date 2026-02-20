@@ -1,0 +1,1046 @@
+{
+  "name": "Sincronizar Agencia DB - Hubspot",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const data = items.map(item => item.json);\nlet normalized;\nif (Array.isArray(data) && Array.isArray(data[0])) {\n  normalized = data[0];\n}\nelse if (Array.isArray(data)) {\n  normalized = data;\n}\nelse {\n  normalized = [data];\n}\n\nfunction normalizePhone(phone) {\n  if (!phone) return null;\n  \n  // Convertir a string y limpiar espacios/guiones/paréntesis\n  let cleaned = String(phone).replace(/[\\s\\-()]/g, '');\n  \n  // Remover caracteres no numéricos excepto el '+' inicial\n  const hasPlus = cleaned.startsWith('+');\n  cleaned = cleaned.replace(/\\D/g, '');\n  \n  // 1. Remover prefijo internacional +54 o 54\n  if (cleaned.startsWith('54')) {\n    cleaned = cleaned.substring(2);\n  }\n  \n  // 2. Remover el 0 de discado nacional (DDN)\n  if (cleaned.startsWith('0')) {\n    cleaned = cleaned.substring(1);\n  }\n  \n  // 3. Identificar código de área y número\n  let areaCode = '';\n  let localNumber = '';\n  \n  // Códigos de área comunes en Argentina:\n  // - 11: Buenos Aires (2 dígitos) → números de 8 dígitos\n  // - 3XX: Resto del país (3 dígitos) → números de 7 dígitos\n  // - 2XX: Algunas provincias (3 dígitos) → números de 7 dígitos\n  // - 4 dígitos en zonas rurales\n  \n  if (cleaned.startsWith('11')) {\n    // Buenos Aires: código 11 + 8 dígitos\n    areaCode = '11';\n    localNumber = cleaned.substring(2);\n    \n    // Remover el 15 si está presente (prefijo de celular)\n    if (localNumber.startsWith('15')) {\n      localNumber = localNumber.substring(2);\n    }\n    \n    // Validar que tenga 8 dígitos\n    if (localNumber.length > 8) {\n      localNumber = localNumber.substring(localNumber.length - 8);\n    }\n    \n  } else if (cleaned.startsWith('2') || cleaned.startsWith('3')) {\n    // Resto del país: código de 3 dígitos + 7 dígitos\n    areaCode = cleaned.substring(0, 3);\n    localNumber = cleaned.substring(3);\n    \n    // Remover el 15 si está presente\n    if (localNumber.startsWith('15')) {\n      localNumber = localNumber.substring(2);\n    }\n    \n    // Validar que tenga 7 dígitos\n    if (localNumber.length > 7) {\n      localNumber = localNumber.substring(localNumber.length - 7);\n    }\n    \n  } else {\n    // Caso genérico o número sin código de área claro\n    // Intentar extraer últimos 7-8 dígitos\n    if (cleaned.startsWith('15')) {\n      cleaned = cleaned.substring(2);\n    }\n    \n    if (cleaned.length >= 10) {\n      // Asumir que tiene código de área incluido\n      areaCode = cleaned.substring(0, cleaned.length - 7);\n      localNumber = cleaned.substring(cleaned.length - 7);\n    } else {\n      // Número sin código de área o incompleto\n      return null;\n    }\n  }\n  \n  // 4. Validar longitudes\n  if (areaCode.length < 2 || areaCode.length > 4) {\n    return null;\n  }\n  \n  if (localNumber.length < 6 || localNumber.length > 8) {\n    return null;\n  }\n  \n  // 5. Formato final HubSpot: +54 9 [área] [número]\n  // El \"9\" indica que es un celular en Argentina\n  return `+549${areaCode}${localNumber}`;\n}\n\nnormalized.forEach(contact => {\n  contact.phone = normalizePhone(contact.phone);\n});\n\nconst emails = normalized\n  .map(item => item.email)\n  .filter(email => !!email);\n\nreturn [{ json: { emails, contacts: normalized } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1376,
+        -16
+      ],
+      "id": "05c6172a-0ff8-431d-8fda-e777cb9a2020",
+      "name": "Preparar Datos para HubSpot"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/batch/read",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  idProperty: \"email\",\n  inputs: $json.emails.map(e => ({ id: e })),\n  properties: [\"id\",\"email\",\"emailverificado\", \"firstname\", \"lastname\", \"phone\", \"dni\", \"genero\", \"usuario_rol_plataforma_agencies\",\"usuario_rol_plataforma_insurance\", \"cargo_sistema\"]\n}) }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1152,
+        -16
+      ],
+      "id": "0760fb25-48e0-4841-adb3-beccac5c7e92",
+      "name": "Buscar Contactos Existentes",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "gsNQ34ai7rHgzAqG",
+          "name": "TokenRobert"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const hubspotResponse = $input.item.json;\nconst contactosOriginales = $('Preparar Datos para HubSpot').item.json.contacts;\n\n// 1. Crear el mapa con emails normalizados\nconst idMap = new Map();\n\nif (hubspotResponse.results && Array.isArray(hubspotResponse.results)) {\n  hubspotResponse.results.forEach(contactoHubSpot => {\n    if (contactoHubSpot.properties && contactoHubSpot.properties.email) {\n      // Normalizar a minúsculas al guardar\n      const emailNormalizado = contactoHubSpot.properties.email.toLowerCase();\n      idMap.set(emailNormalizado, contactoHubSpot.id);\n    }\n  });\n}\n\n// 2. Procesar contactos buscando con email normalizado\nconst contactosParaProcesar = contactosOriginales.map(contactoBD => {\n  // Normalizar a minúsculas al buscar\n  const emailNormalizado = contactoBD.email.toLowerCase();\n  const hubspotId = idMap.get(emailNormalizado) || null;\n  \n  return {\n    ...contactoBD,\n    id: hubspotId, \n  };\n});\n\n// 3. Retornar\nreturn contactosParaProcesar.map(c => ({ json: c }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -928,
+        -16
+      ],
+      "id": "787a315c-bd46-4220-9e9f-d93cef847eb1",
+      "name": "Procesar Respuesta HubSpot"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "da083b8c-f52a-407d-80df-19eb24d7c7d2",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -480,
+        -208
+      ],
+      "id": "cf12803b-f394-41af-95e9-5f58f1ecd6a3",
+      "name": "¿Contacto no Existe?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $json.email }}\",\n    \"phone\": \"{{ $json.phone }}\",\n    \"activo\": \"{{ $json.disabled_at == null ? true : false}}\",\n    \"emailverificado\": \"{{ $json.emailverificado ? 'true' : 'false' }}\",\n\"telefono_validado\": \"{{ $json.phoneverificado ? 'true' : 'false' }}\",\n\"identidad_validada\": \"{{ $json.identity_confirmed_at ? 'true' : 'false' }}\",\n    \"firstname\": \"{{ $json.first_name }}\",\n    \"lastname\": \"{{ $json.last_name }}\",\n    \"dni\": \"{{ $json.dni }}\",\n    \"genero\": \"{{ $json.gender === \"M\" ? \"Masculino\" : \"Femenino\"}}\",\n    \"usuario_rol_plataforma_agencies\": \"{{ $json.usuario_rol_plataforma_agencies === \"true\" ? 'user' : '' }}\",\n    \"usuario_rol_plataforma_insurance\": \"{{ $json.usuario_rol_plataforma_insurance === \"true\" ? 'user' : '' }}\",\n    \"cargo_sistema\": \"{{ $json.cargo_sistema }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -256,
+        -144
+      ],
+      "id": "e91f523c-48e0-4c08-867c-a5c6f3172ec3",
+      "name": "Crear Nuevo Contacto",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/{{ $('Procesar Cada Contacto').item.json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"phone\": \"{{ $json.phone }}\",\n    \"activo\": \"{{ $json.disabled_at == null ? true : false}}\",\n    \"emailverificado\": \"{{ $json.emailverificado ? 'true' : 'false' }}\",\n\"telefono_validado\": \"{{ $json.phoneverificado ? 'true' : 'false' }}\",\n\"identidad_validada\": \"{{ $json.identity_confirmed_at ? 'true' : 'false' }}\",\n    \"firstname\": \"{{ $json.first_name }}\",\n    \"lastname\": \"{{ $json.last_name }}\",\n    \"dni\": \"{{ $json.dni }}\",\n    \"genero\": \"{{ $json.gender === \"M\" ? \"Masculino\" : \"Femenino\"}}\",\n    \"usuario_rol_plataforma_agencies\": \"{{ $json.usuario_rol_plataforma_agencies === \"true\" ? 'user' : '' }}\",\n    \"usuario_rol_plataforma_insurance\": \"{{ $json.usuario_rol_plataforma_insurance === \"true\" ? 'user' : '' }}\",\n    \"cargo_sistema\": \"{{ $json.cargo_sistema }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -256,
+        64
+      ],
+      "id": "2fbc7027-4939-48e9-a7cc-f9967b3658b9",
+      "name": "Actualizar Contacto Existente",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    u.id,\n    u.business_id,\n    u.email,\n    u.phone,\n    u.email_verified_at AS emailverificado,\n    u.phone_verified_at AS phoneverificado,\n    upd.identity_confirmed_at,\n    u.disabled_at,\n    upd.first_name,\n    upd.last_name,\n    upd.dni,\n    upd.gender,\n    IF(u.id = b.owner_id, 'dueno', 'empleado') AS cargo_sistema,\n\n    -- Permiso Agencias (Rol 1)\n    (\n        SELECT IF(COUNT(*) > 0, 'true', 'false')\n        FROM onboarding.platform_role_user pru\n        WHERE pru.user_id = u.id \n        AND pru.platform_role_id = 2\n    ) AS usuario_rol_plataforma_agencies,\n\n    -- Permiso Seguros (Rol 2)\n    (\n        SELECT IF(COUNT(*) > 0, 'true', 'false')\n        FROM onboarding.platform_role_user pru\n        WHERE pru.user_id = u.id \n        AND pru.platform_role_id = 3\n    ) AS usuario_rol_plataforma_insurance\n\nFROM onboarding.businesses b\nLEFT JOIN onboarding.users u \n       ON u.business_id = b.id\nLEFT JOIN onboarding.user_personal_data upd \n       ON upd.user_id = u.id\n\nWHERE b.code = {{ $json.body.code }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1600,
+        -16
+      ],
+      "id": "b57fcb5a-650a-4bee-b111-ca1ff521774c",
+      "name": "Consultar contactos en BD",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    b.code AS codigo,\n    b.created_at,\n    b.id,\n    b.name,\n    b.phone AS phone_agencia,\n    b.category_id AS categoria_final,\n    b.seller_id AS vendedor_final,\n    b.sub_zone_id AS subzona_final,\n    b.status_id AS estado_agencies,\n    b.trust_level_id AS confianza_consolidada,\n    b.commercial_trust_level_id AS confianza_comercial,\n    b.manager_trust_level_id AS confianza_gerente,\n    b.supervisor_trust_level_id AS confianza_supervisor,\n    IF(ISNULL(b.disabled_at), \"true\", \"false\") AS empresa_habilitada,\n    IF(ISNULL(b.ready_at), \"false\", \"true\") AS onboarding_finalizado,\n    b.cuit AS cuit_cuil,\n\n    -- Supervisor y sucursal\n    s.supervisor_id AS supervisor_final,\n    sp.branch_office_id AS sucursal_final,\n\n    -- Dirección de la agencia\n    a.street AS direccion_calle,\n    a.postal_code AS direccion_codigo_postal,\n    a.locality AS direccion_localidad,\n    a.number AS direccion_numero,\n    a.floor AS direccion_piso,\n    a.province_id AS direccion_provincia,\n\n    -- Habilitada en plataformas\n    IF(ISNULL(bp_agencies.business_id), \"false\", \"true\") AS habilitada_plataforma_agencies,\n    IF(ISNULL(bp_insurance.business_id), \"false\", \"true\") AS habilitada_plataforma_insurance,\n\n    -- Datos del dueño (u)\n    u.phone_verified_at AS numero_verificado,\n    u.finished_at AS usuario_finalizado,\n\n    -- Datos personales del dueño\n    upd.identity_confirmed_at AS identidad_validada,\n\n    -- Onboarding aprobado (lógica consolidada)\n    IF(\n        u.phone_verified_at IS NOT NULL\n        AND upd.identity_confirmed_at IS NOT NULL\n        AND u.finished_at IS NOT NULL,\n        \"true\",\n        \"false\"\n    ) AS onboarding_aprobado\n\nFROM onboarding.businesses b\nLEFT JOIN onboarding.sellers s \n    ON b.seller_id = s.id\nLEFT JOIN onboarding.supervisors sp \n    ON s.supervisor_id = sp.id\nLEFT JOIN onboarding.addresses a \n    ON b.id = a.addressable_id \n    AND a.addressable_type = 'App\\\\Models\\\\Business'\nLEFT JOIN onboarding.business_platform bp_agencies \n    ON bp_agencies.business_id = b.id \n    AND bp_agencies.platform_id = 2\nLEFT JOIN onboarding.business_platform bp_insurance \n    ON bp_insurance.business_id = b.id \n    AND bp_insurance.platform_id = 3\n\n-- 🔥 Agregamos el dueño de la agencia\nLEFT JOIN onboarding.users u \n    ON b.owner_id = u.id\nLEFT JOIN onboarding.user_personal_data upd \n    ON u.id = upd.user_id\n\nWHERE b.code = {{ $json.body.code }};\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1376,
+        688
+      ],
+      "id": "9feedc1b-bb0b-41f3-bf01-a6031dc6d20c",
+      "name": "Consultar Agencia en BD",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sincroAgencia",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1824,
+        512
+      ],
+      "id": "fea58910-b0c2-48ab-bfcc-59f5606456d1",
+      "name": "Recibir codigo",
+      "webhookId": "52e1b706-e677-4a7b-a6d4-c8f704ce4327"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"codigo\",\n          \"operator\": \"EQ\",\n          \"value\": \"{{ $json.raw.codigo }}\"\n        }\n      ]\n    }\n  ],\n  \"limit\": 1\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -928,
+        688
+      ],
+      "id": "dbc345fa-f02c-4fa7-922b-efe432314c10",
+      "name": "Obtener agencia",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/companies/{{ $json.results[0].id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"phone\": \"{{ $('Normalizar datos').item.json.properties.phone_agencia }}\",\n\"categoria_final\": \"{{ $('Normalizar datos').item.json.properties.categoria_final }}\",\n    \"vendedor_final\": \"{{ $('Normalizar datos').item.json.properties.vendedor_final }}\",\n    \"subzona_final\": \"{{ $('Normalizar datos').item.json.properties.subzona_final }}\",\n    \"estado_agencies\": \"{{ $('Normalizar datos').item.json.properties.estado_agencies }}\",\n    \"confianza_consolidada\": \"{{ $('Normalizar datos').item.json.properties.confianza_consolidada }}\",\n    \"confianza_comercial\": \"{{ $('Normalizar datos').item.json.properties.confianza_comercial }}\",\n    \"confianza_gerente\": \"{{ $('Normalizar datos').item.json.properties.confianza_gerente }}\",\n    \"confianza_supervisor\": \"{{ $('Normalizar datos').item.json.properties.confianza_supervisor }}\",\n    \"empresa_habilitada\": \"{{ $('Normalizar datos').item.json.properties.empresa_habilitada }}\",\n    \"onboarding_finalizado\": \"{{ $('Normalizar datos').item.json.properties.onboarding_finalizado }}\",\n    \"onboarding_aprobado\": \"{{ $('Normalizar datos').item.json.properties.onboarding_aprobado }}\",\n    \"cuit_cuil\": \"{{ $('Normalizar datos').item.json.properties.cuit_cuil }}\",\n    \"supervisor_final\": \"{{ $('Normalizar datos').item.json.properties.supervisor_final }}\",\n    \"sucursal_final\": \"{{ $('Normalizar datos').item.json.properties.sucursal_final }}\",\n    \"habilitada_plataforma_agencies\": \"{{ $('Normalizar datos').item.json.properties.habilitada_plataforma_agencies }}\",\n    \"habilitada_plataforma_insurance\": \"{{ $('Normalizar datos').item.json.properties.habilitada_plataforma_insurance }}\"\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -480,
+        496
+      ],
+      "id": "ed1dbd35-fe66-4fd5-90e9-56bd3ba4ed71",
+      "name": "Actulizar agencia",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// === Nodo Function: Normalizar Agencia + Preparar PATCH ===\n\n// --- Funciones auxiliares ---\n\nfunction mapEstado(v) {\n  const n = Number(v);\n  switch (n) {\n    case 1: return \"AA\";\n    case 2: return \"SA\";\n    case 3: return \"SC\";\n    case 4: return \"NAH\";\n    case 5: return \"NA\";\n    default: return \"NAN\";\n  }\n}\n\nfunction mapConfianza(v) {\n  const n = Number(v);\n  switch (n) {\n    case 1: return \"A\";\n    case 2: return \"B\";\n    case 3: return \"C\";\n    case 4: return \"D\";\n    default: return null;\n  }\n}\n\nfunction normalizeBool(v) {\n  if (v === true || v === \"true\" || v === 1) return \"true\";\n  if (v === false || v === \"false\" || v === 0 || v === null || v === undefined) return \"false\";\n  return \"false\";\n}\n\nfunction normalizePhone(v) {\n  if (!v) return null;\n  const digits = String(v).replace(/[^\\d+]/g, \"\");\n  if (digits.startsWith(\"+\")) return digits;\n  const only = digits.replace(/\\D/g, \"\");\n  return only.length ? `+54${only}` : null;\n}\n\n// --- Normalizar datos provenientes de la BD ---\nconst item = items[0];\nconst data = item.json[\"0\"] || item.json;\n\n// Copia completa (no se elimina nada)\nconst raw = JSON.parse(JSON.stringify(data));\n\n// Construir properties para HubSpot\nconst properties = {\n  name: data.name || null,\n  phone_agencia: normalizePhone(data.phone_agencia || data.telefono),\n  categoria_final: data.categoria_final || null,\n  vendedor_final: data.vendedor_final || null,\n  subzona_final: data.subzona_final || null,\n  estado_agencies: mapEstado(data.estado_agencies),\n  confianza_consolidada: mapConfianza(data.confianza_consolidada),\n  confianza_comercial: mapConfianza(data.confianza_comercial),\n  confianza_gerente: mapConfianza(data.confianza_gerente),\n  confianza_supervisor: mapConfianza(data.confianza_supervisor),\n  empresa_habilitada: normalizeBool(data.empresa_habilitada),\n  onboarding_finalizado: normalizeBool(data.onboarding_finalizado),\n  onboarding_aprobado: normalizeBool(data.onboarding_aprobado),\n  cuit_cuil: data.cuit_cuil || null,\n  supervisor_final: data.supervisor_final || null,\n  sucursal_final: data.sucursal_final || null,\n  direccion_calle: data.direccion_calle || null,\n  direccion_codigo_postal: data.direccion_codigo_postal || null,\n  direccion_localidad: data.direccion_localidad || null,\n  direccion_numero: data.direccion_numero || null,\n  direccion_piso: data.direccion_piso || null,\n  direccion_provincia: data.direccion_provincia || null,\n  habilitada_plataforma_agencies: normalizeBool(data.habilitada_plataforma_agencies),\n  habilitada_plataforma_insurance: normalizeBool(data.habilitada_plataforma_insurance),\n};\n\n// Retornamos lo que sigue al nodo “Obtener agencia”\nreturn [\n  {\n    json: {\n      raw,\n      properties,\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1152,
+        688
+      ],
+      "id": "6ca32bd1-23d6-4ccd-ab06-ccb615ee3838",
+      "name": "Normalizar datos"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "188b94be-3320-4e17-8570-f08e770b1aa7",
+              "leftValue": "={{ $json.total >= 1  }}",
+              "rightValue": "={{ 1 }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "833d558f-2702-40d3-bc15-d837b7ba3dd3",
+              "leftValue": "={{ \n  $now.toDateTime() <\n  $('Normalizar datos').item.json.raw.created_at\n    .toDateTime()\n    .plus({ minutes: 15 })\n}}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -704,
+        592
+      ],
+      "id": "c2c16181-179d-4bfb-a82f-938f3fca4046",
+      "name": "Existe la agencia?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n      \"codigo\": \"{{ $('Normalizar datos').item.json.raw.codigo }}\",\n    \"name\": \"{{ $('Normalizar datos').item.json.properties.name }}\",\n    \"phone\": \"{{ $('Normalizar datos').item.json.properties.phone_agencia }}\",\n    \"categoria_final\": \"{{ $('Normalizar datos').item.json.properties.categoria_final }}\",\n    \"vendedor_final\": \"{{ $('Normalizar datos').item.json.properties.vendedor_final }}\",\n    \"subzona_final\": \"{{ $('Normalizar datos').item.json.properties.subzona_final }}\",\n    \"estado_agencies\": \"{{ $('Normalizar datos').item.json.properties.estado_agencies }}\",\n    \"confianza_consolidada\": \"{{ $('Normalizar datos').item.json.properties.confianza_consolidada }}\",\n    \"confianza_comercial\": \"{{ $('Normalizar datos').item.json.properties.confianza_comercial }}\",\n    \"confianza_gerente\": \"{{ $('Normalizar datos').item.json.properties.confianza_gerente }}\",\n    \"confianza_supervisor\": \"{{ $('Normalizar datos').item.json.properties.confianza_supervisor }}\",\n    \"empresa_habilitada\": \"{{ $('Normalizar datos').item.json.properties.empresa_habilitada }}\",\n    \"onboarding_finalizado\": \"{{ $('Normalizar datos').item.json.properties.onboarding_finalizado }}\",\n    \"onboarding_aprobado\": \"{{ $('Normalizar datos').item.json.properties.onboarding_aprobado }}\",\n    \"cuit_cuil\": \"{{ $('Normalizar datos').item.json.properties.cuit_cuil }}\",\n    \"supervisor_final\": \"{{ $('Normalizar datos').item.json.properties.supervisor_final }}\",\n    \"sucursal_final\": \"{{ $('Normalizar datos').item.json.properties.sucursal_final }}\",\n    \"direccion_calle\": \"{{ $('Normalizar datos').item.json.properties.direccion_calle }}\",\n    \"direccion_codigo_postal\": \"{{ $('Normalizar datos').item.json.properties.direccion_codigo_postal }}\",\n    \"direccion_localidad\": \"{{ $('Normalizar datos').item.json.properties.direccion_localidad }}\",\n    \"direccion_numero\": \"{{ $('Normalizar datos').item.json.properties.direccion_numero }}\",\n    \"direccion_piso\": \"{{ $('Normalizar datos').item.json.properties.direccion_piso }}\",\n    \"direccion_provincia\": \"{{ $('Normalizar datos').item.json.properties.direccion_provincia }}\",\n    \"habilitada_plataforma_agencies\": \"true\",\n    \"habilitada_plataforma_insurance\": \"{{ $('Normalizar datos').item.json.properties.habilitada_plataforma_insurance }}\"\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -480,
+        688
+      ],
+      "id": "a34ce4ee-03be-4699-b2d7-a9b9f154d0ea",
+      "name": "Crear agencia",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        208,
+        368
+      ],
+      "id": "83030cf9-4f52-4602-9436-658ab75b623b",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -704,
+        -16
+      ],
+      "id": "bc913373-f3a1-4386-a711-7ffbc5a6f319",
+      "name": "Procesar Cada Contacto"
+    },
+    {
+      "parameters": {
+        "jsCode": "// $items() trae todos los items que salieron del nodo anterior (ya procesados)\nconst allIds = $items().map(item => item.json.hs_object_id || item.json.id);\n\n// Retornamos un solo item con el array completo\nreturn [\n  {\n    json: {\n      idsArray: allIds\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        -400
+      ],
+      "id": "d69ccd2f-9250-404e-879a-2a835a2ebb7f",
+      "name": "Obtener ids de los contactos"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtenemos el objeto JSON del primer item de entrada\nconst inputItem = $input.first().json;\n\n// 1. Obtiene el array de IDs de contactos\nconst contactIds = inputItem.idsArray || [];\n\n// 2. Obtiene y convierte el ID de la empresa a String (por seguridad)\nconst companyId = $input.first().json.id; \n\n// Construimos el array de asociaciones\nconst inputs = contactIds\n  .filter(id => id) \n  .map(contactId => ({\n    from: { id: contactId },\n    to: { id: companyId }, // Usamos la variable local companyId\n    type: \"contact_to_company\"\n  }));\n\n// Retornamos el body listo para la petición batch\nreturn [\n  {\n    json: {\n      inputs\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        352
+      ],
+      "id": "525d2f5a-4bef-4375-90b4-5d553ba6b5b9",
+      "name": "Armado del cuerpo de la peticion"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/associations/contacts/companies/batch/create",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ inputs: $json.inputs })}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        352
+      ],
+      "id": "46abb97a-2d98-4d06-8d32-72e71217cf65",
+      "name": "Asociar contacto con empresas",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Yxtx97R2cXE7HJnk",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/Yxtx97R2cXE7HJnk",
+          "cachedResultName": "NotificarErrores"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        672,
+        -112
+      ],
+      "id": "a11f61c6-93dc-4deb-bd06-63a9b5f36c26",
+      "name": "Notificar error",
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        592
+      ],
+      "id": "d8cf7f82-ccb1-4b0e-9a0a-57ac8e67eedb",
+      "name": "Puente error 2"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Yxtx97R2cXE7HJnk",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/Yxtx97R2cXE7HJnk",
+          "cachedResultName": "NotificarErrores"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        896,
+        352
+      ],
+      "id": "5076b885-79ee-442c-87f1-41ad1e718d62",
+      "name": "Notificar error1",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Yxtx97R2cXE7HJnk",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/Yxtx97R2cXE7HJnk",
+          "cachedResultName": "NotificarErrores"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -704,
+        784
+      ],
+      "id": "373719e0-77fc-4af0-88dc-643c38c06ab8",
+      "name": "Notificar error2",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "188b94be-3320-4e17-8570-f08e770b1aa7",
+              "leftValue": "={{ $('Normalizar datos').item.json.raw.habilitada_plataforma_agencies }}",
+              "rightValue": "false",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -256,
+        880
+      ],
+      "id": "ba5a6755-ee36-40fc-98c8-2f83fd518648",
+      "name": "¿Ya tiene permiso?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT IGNORE INTO onboarding.business_platform (business_id, platform_id) VALUES ({{ $('Normalizar datos').item.json.raw.id }}, 2);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -32,
+        880
+      ],
+      "id": "99dbc066-1cb3-4f3b-aa1b-d542c513f415",
+      "name": "Insertar Permiso Faltante",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4872f039-a3b8-4a4e-96ce-07f60c1010b0",
+              "leftValue": "={{ $json.error.message }}",
+              "rightValue": "Number isn't valid for country code",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -32,
+        176
+      ],
+      "id": "3ba1a591-1a11-45f1-9c0a-bbda65ca57fc",
+      "name": "Error phone?"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/{{ $('Procesar Cada Contacto').item.json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $json.email }}\",\n    \"activo\": \"{{ $json.disabled_at == null ? true : false}}\",\n    \"emailverificado\": \"{{ $json.emailverificado ? 'true' : 'false' }}\",\n    \"firstname\": \"{{ $json.first_name }}\",\n    \"lastname\": \"{{ $json.last_name }}\",\n    \"dni\": \"{{ $json.dni }}\",\n    \"genero\": \"{{ $json.gender === \"M\" ? \"Masculino\" : \"Femenino\"}}\",\n    \"usuario_rol_plataforma_agencies\": \"{{ $json.usuario_rol_plataforma_agencies ? 'user' : '' }}\",\n    \"usuario_rol_plataforma_insurance\": \"{{ $json.usuario_rol_plataforma_insurance ? 'user' : '' }}\",\n    \"cargo_sistema\": \"{{ $json.cargo_sistema }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        192,
+        176
+      ],
+      "id": "504d06cf-1b8c-4ce4-b842-b202dbadff61",
+      "name": "Actulizar",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4872f039-a3b8-4a4e-96ce-07f60c1010b0",
+              "leftValue": "={{ $json.error.message }}",
+              "rightValue": "Number isn't valid for country code",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        32,
+        -80
+      ],
+      "id": "776d247d-edda-4b03-8f0c-5eefe1248fed",
+      "name": "Error phone?1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $json.email }}\",\n    \"activo\": \"{{ $json.disabled_at == null ? true : false}}\",\n    \"emailverificado\": \"{{ $json.emailverificado ? 'true' : 'false' }}\",\n    \"firstname\": \"{{ $json.first_name }}\",\n    \"lastname\": \"{{ $json.last_name }}\",\n    \"dni\": \"{{ $json.dni }}\",\n    \"genero\": \"{{ $json.gender === \"M\" ? \"Masculino\" : \"Femenino\"}}\",\n    \"usuario_rol_plataforma_agencies\": \"{{ $json.usuario_rol_plataforma_agencies ? 'user' : '' }}\",\n    \"usuario_rol_plataforma_insurance\": \"{{ $json.usuario_rol_plataforma_insurance ? 'user' : '' }}\",\n    \"cargo_sistema\": \"{{ $json.cargo_sistema }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        288,
+        -96
+      ],
+      "id": "9cad7259-9827-4e1d-940a-74a0c8cb3bbb",
+      "name": "Crear Nuevo Contacto sin telefono",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Preparar Datos para HubSpot": {
+      "main": [
+        [
+          {
+            "node": "Buscar Contactos Existentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Contactos Existentes": {
+      "main": [
+        [
+          {
+            "node": "Procesar Respuesta HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Respuesta HubSpot": {
+      "main": [
+        [
+          {
+            "node": "Procesar Cada Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Contacto no Existe?": {
+      "main": [
+        [
+          {
+            "node": "Crear Nuevo Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Actualizar Contacto Existente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear Nuevo Contacto": {
+      "main": [
+        [
+          {
+            "node": "Procesar Cada Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error phone?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Contacto Existente": {
+      "main": [
+        [
+          {
+            "node": "Procesar Cada Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error phone?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar contactos en BD": {
+      "main": [
+        [
+          {
+            "node": "Preparar Datos para HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Agencia en BD": {
+      "main": [
+        [
+          {
+            "node": "Normalizar datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recibir codigo": {
+      "main": [
+        [
+          {
+            "node": "Consultar contactos en BD",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Consultar Agencia en BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener agencia": {
+      "main": [
+        [
+          {
+            "node": "Existe la agencia?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notificar error2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actulizar agencia": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Puente error 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar datos": {
+      "main": [
+        [
+          {
+            "node": "Obtener agencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existe la agencia?": {
+      "main": [
+        [
+          {
+            "node": "Actulizar agencia",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Crear agencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear agencia": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "¿Ya tiene permiso?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Puente error 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Armado del cuerpo de la peticion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Cada Contacto": {
+      "main": [
+        [
+          {
+            "node": "Obtener ids de los contactos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Contacto no Existe?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener ids de los contactos": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armado del cuerpo de la peticion": {
+      "main": [
+        [
+          {
+            "node": "Asociar contacto con empresas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Asociar contacto con empresas": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Notificar error1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Ya tiene permiso?": {
+      "main": [
+        [
+          {
+            "node": "Insertar Permiso Faltante",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error phone?": {
+      "main": [
+        [
+          {
+            "node": "Actulizar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Procesar Cada Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actulizar": {
+      "main": [
+        [
+          {
+            "node": "Procesar Cada Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error phone?1": {
+      "main": [
+        [
+          {
+            "node": "Crear Nuevo Contacto sin telefono",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Procesar Cada Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear Nuevo Contacto sin telefono": {
+      "main": [
+        [
+          {
+            "node": "Procesar Cada Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "0ef24553-24f4-4d2f-9f0b-02c4b2953a6f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
+  },
+  "id": "Vio3Iq8diWrUY1H3",
+  "tags": []
+}

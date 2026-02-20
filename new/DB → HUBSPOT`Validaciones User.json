@@ -1,0 +1,680 @@
+{
+  "name": "DB → HUBSPOT`Validaciones User",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1072,
+        496
+      ],
+      "id": "d5ace6ea-4b3e-4a81-ab80-575f38a3ec47",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"email\",\n          \"operator\": \"EQ\",\n          \"value\": \"{{ $json.email_usuario }}\"\n        }\n      ]\n    }\n  ],\n  \"properties\": [\n    \"emailverificado\",\n    \"identidad_validada\",\n    \"telefono_validado\"\n  ],\n  \"limit\": 1\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -400,
+        544
+      ],
+      "id": "04fa97b5-435a-46f7-bba9-44938be72461",
+      "name": "GetUser",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "batchSize": "=1",
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -624,
+        496
+      ],
+      "id": "43f2f5f5-cf04-4dfc-87a0-dbe61d7185c4",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        352
+      ],
+      "id": "f687dcf3-5061-482c-8659-1659d8b2899d",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT *\nFROM validaciones_n8n\nWHERE (\n        (fecha_procesado IS NULL AND estado_proceso = 'pending')\n        OR\n        (fecha_procesado IS NOT NULL AND estado_proceso = 'error_request')\n      )\n  AND destino NOT IN ('DB')\n  AND campo_cambiado NOT IN ('owner_id', 'business_id', 'category_id')\n  AND fecha_cambio >= NOW() - INTERVAL 1 DAY\nORDER BY fecha_cambio ASC;\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -848,
+        496
+      ],
+      "id": "00b39c74-9539-4047-85ec-75346de7ccb1",
+      "name": "Query validaciones_n8n",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        352
+      ],
+      "id": "2725a17f-cc64-4b1c-b99d-2ca5a9017ca5",
+      "name": "No pasa anda"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c8ce5fa4-b376-4a50-8ac2-aa1b7c55e9e6",
+              "leftValue": "={{ $json.usuario_completamente_verificado }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        944,
+        256
+      ],
+      "id": "f57d7472-79a7-4e83-8c17-d0f1f2dd3318",
+      "name": "Completo todas las validaciones?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const userData = $('GetUser').item.json.results[0].properties;\nconst campoActualizado = $('Loop Over Items').item.json.campo_cambiado;\nconst valorActualizado = $('Loop Over Items').item.json.valor;\n\n// Mapear el campo cambiado a su propiedad en HubSpot\nconst mapaCampos = {\n  'email_verified_at': 'emailverificado',\n  'identity_confirmed_at': 'identidad_validada',\n  'phone_verified_at': 'telefono_validado'\n};\n\nconst propiedadActualizada = mapaCampos[campoActualizado];\n\n// IMPORTANTE: Convertir el valor de la BD (0 o 1) a string 'true' o 'false'\nconst valorComoString = (valorActualizado == 1 || valorActualizado === true) ? 'true' : 'false';\n\n// Determinar el estado actual de cada validación\nconst validaciones = {\n  emailverificado: propiedadActualizada === 'emailverificado' \n    ? valorComoString\n    : (userData.emailverificado || 'false'),\n  identidad_validada: propiedadActualizada === 'identidad_validada'\n    ? valorComoString\n    : (userData.identidad_validada || 'false'),\n  telefono_validado: propiedadActualizada === 'telefono_validado'\n    ? valorComoString\n    : (userData.telefono_validado || 'false')\n};\n\n// DEBUG: Agregar información para verificar\nconsole.log('Campo actualizado:', campoActualizado);\nconsole.log('Valor recibido de BD:', valorActualizado, 'tipo:', typeof valorActualizado);\nconsole.log('Valor convertido:', valorComoString);\nconsole.log('Validaciones actuales:', validaciones);\n\n// Verificar si TODAS las validaciones están completas (todas deben ser 'true')\nconst todasVerificadas = \n  validaciones.emailverificado === 'true' &&\n  validaciones.identidad_validada === 'true' &&\n  validaciones.telefono_validado === 'true';\n\nconsole.log('¿Todas verificadas?:', todasVerificadas);\n\n// Retornar el item con la información completa\nreturn [{\n  json: {\n    ...items[0].json,\n    usuario_completamente_verificado: todasVerificadas,\n    validaciones_actuales: validaciones,\n    usuario_id: userData.hs_object_id || $('GetUser').item.json.results[0].id,\n    email: userData.email || $('Loop Over Items').item.json.email_usuario,\n    campo_que_completo: todasVerificadas ? campoActualizado : null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        320
+      ],
+      "id": "604d96c6-ba94-4bc8-8df2-26d3b1a8b64a",
+      "name": "Validar Verificación Completa",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.validaciones_n8n\nSET fecha_procesado = NOW(),\n    estado_proceso = 'success'\nWHERE id = {{ $('Loop Over Items').item.json.id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        272,
+        400
+      ],
+      "id": "038bb1ea-7051-4cc7-9084-134a19edbf24",
+      "name": "Succes: Update fecha_procesado y estado_proceso2",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Yxtx97R2cXE7HJnk",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/Yxtx97R2cXE7HJnk",
+          "cachedResultName": "NotificarErrores"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1584,
+        448
+      ],
+      "id": "f1b74af0-df05-4ce8-aeda-1f92bce6e0f5",
+      "name": "Call 'NotificarErrores'",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const FIELD_MAPPING = {\n  'phone': 'mobilephone',\n  'first_name': 'firstname',\n  'last_name': 'lastname',\n  'dni': 'dni',\n  'email_verified_at': 'emailverificado',\n  'identity_confirmed_at': 'identidad_validada',\n  'phone_verified_at': 'telefono_validado'\n};\n\nconst CAMPOS_VALIDACION = ['email_verified_at', 'identity_confirmed_at', 'phone_verified_at'];\nconst CAMPOS_NUMERICOS = ['dni'];\n\nconst campoDb = $('Loop Over Items').item.json.campo_cambiado;\nlet valor = $('Loop Over Items').item.json.valor;\n\nif (typeof valor === 'string') valor = valor.replace(/[\"']/g, '').trim();\n\nconst campoHubspot = FIELD_MAPPING[campoDb];\nif (!campoHubspot) throw new Error(`Campo no mapeado: ${campoDb}`);\n\nlet valorFinal;\n\nif (CAMPOS_VALIDACION.includes(campoDb)) {\n  valorFinal = (valor == 1 || valor === true) ? 'true' : 'false';\n} else if (CAMPOS_NUMERICOS.includes(campoDb)) {\n  valorFinal = Number(valor);\n  if (isNaN(valorFinal)) throw new Error(`Valor numérico inválido para ${campoDb}: ${valor}`);\n} else if (campoDb === 'phone') {\n  let limpio = valor.toString().replace(/[\\s\\-()]/g, '').replace(/[^0-9+]/g, '').replace(/^0+/, '');\n  \n  if (!limpio.startsWith('+')) {\n    const match = limpio.match(/^(\\d{2,4})15(\\d{6,8})$/);\n    \n    if (match) {\n      limpio = `+549${match[1]}${match[2]}`;\n    } else if (limpio.startsWith('911')) {\n      limpio = '+54' + limpio;\n    } else if (limpio.startsWith('11') && limpio.length === 10) {\n      limpio = '+549' + limpio;\n    } else if (limpio.startsWith('54')) {\n      limpio = '+' + limpio;\n      if (/^\\+54(11|[2-9]\\d{1,3})\\d{6,8}$/.test(limpio)) {\n        limpio = limpio.replace(/^\\+54/, '+549');\n      }\n    } else if (limpio.length > 11) {\n      const ultimos10 = limpio.slice(-10);\n      if (!ultimos10.startsWith('11')) throw new Error(`Número con formato inválido: ${limpio}`);\n      limpio = '+549' + ultimos10;\n    } else if (limpio.length >= 10) {\n      limpio = '+549' + limpio;\n    } else {\n      limpio = '+54' + limpio;\n    }\n  }\n  \n  if (!/^\\+[1-9]\\d{9,14}$/.test(limpio) || (limpio.startsWith('+54') && (limpio.length < 12 || limpio.length > 14))) {\n    throw new Error(`Formato telefónico inválido: ${limpio}`);\n  }\n  \n  valorFinal = limpio;\n} else {\n  valorFinal = valor.toString();\n}\n\nreturn [{\n  json: {\n    contactId: $('GetUser').item.json.results[0]?.id || null,\n    properties: { [campoHubspot]: valorFinal },\n    campoOriginal: campoDb,\n    campoHubspot,\n    valor: valorFinal,\n    esValidacion: CAMPOS_VALIDACION.includes(campoDb)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        448
+      ],
+      "id": "cf733b54-0082-4277-8afc-d6df6bc35489",
+      "name": "Mapa de configuración",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "355131d9-4e62-4ea6-83d9-ac0ec351508e",
+              "leftValue": "={{ $('Mapa de configuración').item.json.esValidacion }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        400
+      ],
+      "id": "05e80669-ed3b-4db4-b5f1-71e40be86569",
+      "name": "Es validacion?"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/{{ $json.contactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "= {{ JSON.stringify({ properties: $json.properties }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        48,
+        448
+      ],
+      "id": "038d857e-cb90-4c5e-99fd-1127dee023e0",
+      "name": "Update",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE onboarding.validaciones_n8n\nSET fecha_procesado = NOW(),\n    estado_proceso = '{{ $json.results == 0 ? \"not_found\" : \"error_request\" }}'\nWHERE id = {{ $('Loop Over Items').item.json.id }};\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        272,
+        624
+      ],
+      "id": "6eefbeef-6e8a-436a-bf4d-1fb6b56086c4",
+      "name": "Error: Update estado_proceso",
+      "credentials": {
+        "mySql": {
+          "id": "uypzAlinn7HdOqoC",
+          "name": "n8n prod"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "sendTo": "lvalecillos@decreditos.com",
+        "subject": "Nuevo usuario con validaciones completas",
+        "message": "=<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>Validaciones Completadas</title>\n<style>\n  body {\n    font-family: 'Segoe UI', Roboto, Arial, sans-serif;\n    background-color: #f4f8fb;\n    margin: 0;\n    padding: 0;\n  }\n  .container {\n    background-color: #ffffff;\n    max-width: 600px;\n    margin: 40px auto;\n    border-radius: 8px;\n    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);\n    overflow: hidden;\n    border-top: 6px solid #0a3d62;\n  }\n  .header {\n    background-color: #0a3d62;\n    color: #ffffff;\n    text-align: center;\n    padding: 24px;\n  }\n  .header h1 {\n    margin: 0;\n    font-size: 24px;\n  }\n  .content {\n    padding: 24px 32px;\n    color: #333333;\n    line-height: 1.6;\n  }\n  .highlight {\n    color: #0a3d62;\n    font-weight: bold;\n  }\n  .info-box {\n    background-color: #dff0ff;\n    border-left: 4px solid #0a3d62;\n    padding: 16px;\n    margin: 20px 0;\n    border-radius: 4px;\n  }\n  .info-box p {\n    margin: 8px 0;\n    word-break: break-word;\n  }\n  .button-container {\n    text-align: center;\n    margin-top: 30px;\n  }\n  .button {\n    background-color: #0a3d62;\n    color: #ffffff !important;\n    padding: 12px 24px;\n    border-radius: 6px;\n    text-decoration: none;\n    font-weight: bold;\n    display: inline-block;\n    transition: background-color 0.2s ease-in-out;\n  }\n  .button:hover {\n    background-color: #005b99;\n  }\n  .footer {\n    background-color: #e6f2ff;\n    text-align: center;\n    padding: 16px;\n    font-size: 13px;\n    color: #555;\n  }\n  .footer a {\n    color: #0a3d62;\n    text-decoration: none;\n    font-weight: bold;\n  }\n\n  /* Responsive para Desktop */\n  @media only screen and (min-width: 768px) {\n    .container {\n      margin: 60px auto;\n    }\n    .header {\n      padding: 32px;\n    }\n    .header h1 {\n      font-size: 28px;\n    }\n    .content {\n      padding: 32px 48px;\n      font-size: 16px;\n      line-height: 1.7;\n    }\n    .info-box {\n      padding: 20px 24px;\n      margin: 24px 0;\n    }\n    .info-box p {\n      font-size: 15px;\n      margin: 10px 0;\n    }\n    .button {\n      padding: 14px 32px;\n      font-size: 15px;\n    }\n    .footer {\n      padding: 20px;\n      font-size: 14px;\n    }\n  }\n\n  /* Responsive para Mobile */\n  @media only screen and (max-width: 600px) {\n    .container {\n      margin: 20px 10px;\n      border-radius: 6px;\n    }\n    .header {\n      padding: 20px 16px;\n    }\n    .header h1 {\n      font-size: 20px;\n    }\n    .content {\n      padding: 20px 24px;\n      font-size: 15px;\n    }\n    .info-box {\n      padding: 14px;\n      margin: 16px 0;\n    }\n    .button {\n      padding: 12px 20px;\n      font-size: 14px;\n      display: block;\n      margin: 0 auto;\n    }\n    .footer {\n      padding: 14px;\n      font-size: 12px;\n    }\n  }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>✅ Nuevo usuario validado</h1>\n    </div>\n    <div class=\"content\">\n      <p>¡Hola equipo!</p>\n      <p>Este es un aviso automático para informar que el siguiente usuario ha <span class=\"highlight\">completado todas sus validaciones correctamente</span> en el sistema.</p>\n      \n      <div class=\"info-box\">\n        <p><strong>ID de Usuario:</strong> 98932455497</p>\n        <p><strong>Email:</strong> 1020gonzahugo@gmail.com</p>\n      </div>\n      <div class=\"button-container\">\n        <a href=\"https://app.hubspot.com/contacts/7918903/record/0-1/{{ $json.usuario_id }}\" class=\"button\" target=\"_blank\">\n          🔗 Ver usuario en HubSpot\n        </a>\n      </div>\n      \n      <p style=\"margin-top: 24px;\">— <strong>Equipo de Automatización</strong></p>\n    </div>\n    <div class=\"footer\">\n      <p>Este mensaje fue generado automáticamente por el sistema Decreditos 😎.</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1584,
+        32
+      ],
+      "id": "434e589a-2de2-49fd-83ce-aeec3fd6bb46",
+      "name": "Dar aviso del usuario totalmente validado",
+      "webhookId": "2b4f4985-9139-403e-9b85-47986f9c0ceb",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "MUlkvcs3buRmsacV",
+          "name": "Gmail account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\n          \"propertyName\": \"codigo\",\n          \"operator\": \"EQ\",\n          \"value\": \"{{ $('Loop Over Items').item.json.codigo_agencia }}\"\n        }\n      ]\n    }\n  ],\n  \"limit\": 1\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1168,
+        160
+      ],
+      "id": "ef912ed7-e4f3-43c9-b1fc-0b11b0ddf576",
+      "name": "Obtener Agencia",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/companies/{{ $json.results[0].id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"properties\": {\n\"onboarding_finalizado\":\"true\"\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        80
+      ],
+      "id": "f46c0b90-322e-43fe-ad57-31dc1e3014ee",
+      "name": "onboarding_finalizado",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "o6wh93iNfl5M3bKB",
+          "name": "TokenLauti"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "efc002dc-764b-4ae2-ad06-bf53a5d2dde8",
+              "leftValue": "={{ $('Loop Over Items').item.json.estado_proceso }}",
+              "rightValue": "pending",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        624
+      ],
+      "id": "73270167-4eb3-4201-b3f5-0642e21bfc2e",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://automatizaciones.decreditos.com/webhook/sincroAgencia",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "code",
+              "value": "={{ $('Loop Over Items').item.json.codigo_agencia }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        528
+      ],
+      "id": "794195a8-04f4-43e5-9352-ad9b1af6ce1f",
+      "name": "Sincronizar"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Query validaciones_n8n",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetUser": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mapa de configuración",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error: Update estado_proceso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GetUser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query validaciones_n8n": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Completo todas las validaciones?": {
+      "main": [
+        [
+          {
+            "node": "Obtener Agencia",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No pasa anda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Verificación Completa": {
+      "main": [
+        [
+          {
+            "node": "Completo todas las validaciones?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'NotificarErrores'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Succes: Update fecha_procesado y estado_proceso2": {
+      "main": [
+        [
+          {
+            "node": "Es validacion?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mapa de configuración": {
+      "main": [
+        [
+          {
+            "node": "Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es validacion?": {
+      "main": [
+        [
+          {
+            "node": "Validar Verificación Completa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No pasa anda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update": {
+      "main": [
+        [
+          {
+            "node": "Succes: Update fecha_procesado y estado_proceso2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error: Update estado_proceso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error: Update estado_proceso": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dar aviso del usuario totalmente validado": {
+      "main": [
+        []
+      ]
+    },
+    "Obtener Agencia": {
+      "main": [
+        [
+          {
+            "node": "onboarding_finalizado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'NotificarErrores'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "onboarding_finalizado": {
+      "main": [
+        [
+          {
+            "node": "Dar aviso del usuario totalmente validado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'NotificarErrores'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Sincronizar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'NotificarErrores'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e100bf65-c1c5-435b-aa62-78f5cb461464",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
+  },
+  "id": "T0Lyl9q4ngNqigrd",
+  "tags": []
+}
