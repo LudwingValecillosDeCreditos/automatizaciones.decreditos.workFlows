@@ -15,8 +15,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2320,
-        3280
+        -2096,
+        4192
       ],
       "id": "36005018-00bd-40a0-a188-6697d18a628b",
       "name": "Buscar Agencias Habilitadas",
@@ -35,8 +35,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2096,
-        3280
+        -1872,
+        4192
       ],
       "id": "cbe10b51-d957-4008-95e7-b739f6504ae2",
       "name": "Transformar Empresas"
@@ -48,8 +48,8 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -1872,
-        3280
+        -1648,
+        4192
       ],
       "id": "3dcfbf61-1c68-4eb9-968f-bb530a51dcf8",
       "name": "Loop Agencias"
@@ -63,8 +63,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1648,
-        3200
+        -1424,
+        4048
       ],
       "id": "f182ef6a-690f-4bc3-82bb-31d5f806dffc",
       "name": "Verificar Estado BD",
@@ -104,8 +104,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -1424,
-        3200
+        -1200,
+        4144
       ],
       "id": "f917df66-47f4-4873-bee0-2b2616784f0f",
       "name": "¿Está Deshabilitada?"
@@ -119,8 +119,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1200,
-        3280
+        -976,
+        4208
       ],
       "id": "18ea178a-8c55-47b6-9814-c4398f7bb42d",
       "name": "Habilitar en BD",
@@ -146,7 +146,7 @@
       "typeVersion": 4.2,
       "position": [
         -2320,
-        3712
+        3392
       ],
       "id": "6a85bf09-3a2b-441a-865c-949f54bf4d12",
       "name": "Buscar Agencias Deshabilitadas",
@@ -165,7 +165,7 @@
       "typeVersion": 2,
       "position": [
         -2096,
-        3712
+        3392
       ],
       "id": "b10f428d-7f74-43f4-b56f-4b4d1cad9dc3",
       "name": "Transformar Deshabilitadas"
@@ -178,7 +178,7 @@
       "typeVersion": 3,
       "position": [
         -1872,
-        3712
+        3392
       ],
       "id": "3234a1b4-c25c-4e4f-a152-67f2926c8655",
       "name": "Loop Deshabilitadas"
@@ -193,7 +193,7 @@
       "typeVersion": 2.5,
       "position": [
         -1648,
-        3520
+        3200
       ],
       "id": "192adfc9-0b9d-4e16-89a9-8ed49de246ea",
       "name": "Verificar Estado BD2",
@@ -234,7 +234,7 @@
       "typeVersion": 2.2,
       "position": [
         -1424,
-        3520
+        3200
       ],
       "id": "9a2941e6-3cf6-4ba0-acb5-0fde4b671050",
       "name": "¿Está Habilitada en BD?"
@@ -267,7 +267,7 @@
       "typeVersion": 2.2,
       "position": [
         -1200,
-        3520
+        3200
       ],
       "id": "c77ad291-867a-4cb7-94fd-4056b9c2906d",
       "name": "¿Es Test?"
@@ -282,7 +282,7 @@
       "typeVersion": 2.5,
       "position": [
         -976,
-        3584
+        3280
       ],
       "id": "7b4ae09a-7a25-4243-aa13-7c9fc61856c0",
       "name": "Deshabilitar en BD",
@@ -300,8 +300,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2096,
-        3968
+        -1872,
+        3776
       ],
       "id": "271eff8b-b947-4465-817d-17eb1c84235a",
       "name": "Transformar Contactos Validados"
@@ -313,8 +313,8 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -1872,
-        3968
+        -1648,
+        3776
       ],
       "id": "7051e02e-3a4f-4fe1-898e-34412931298d",
       "name": "Loop Contactos Validados"
@@ -329,8 +329,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1648,
-        3760
+        -1424,
+        3632
       ],
       "id": "f7b76b8a-b5d6-485d-891a-9620ee7b211f",
       "name": "Obtener Empresa",
@@ -369,8 +369,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -1424,
-        3760
+        -1200,
+        3728
       ],
       "id": "0397a5c8-5549-4e5e-8460-12ad52076d9f",
       "name": "¿Onboarding Finalizado?"
@@ -389,8 +389,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1200,
-        4016
+        -976,
+        3808
       ],
       "id": "074c2c19-464e-4f88-b715-9cc3c1154123",
       "name": "Marcar Onboarding Completo",
@@ -417,7 +417,7 @@
       "typeVersion": 1.2,
       "position": [
         -2544,
-        4288
+        4352
       ],
       "id": "e5db11f8-5042-49cf-93b5-b836d3cc7caf",
       "name": "Schedule Trigger1"
@@ -436,8 +436,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2320,
-        3968
+        -2096,
+        3776
       ],
       "id": "b9a31d20-4106-4e43-b0d1-8d77e503c01f",
       "name": "Buscar Contactos Validados",
@@ -462,8 +462,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2320,
-        4288
+        -2096,
+        4496
       ],
       "id": "affa9e79-f255-4399-8597-338f44d393ab",
       "name": "Buscar Contactos Sin Empresa",
@@ -481,8 +481,8 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -1872,
-        4288
+        -1648,
+        4496
       ],
       "id": "5c915053-9624-4157-8219-15b66ebe6091",
       "name": "Loop Over Items"
@@ -496,8 +496,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1648,
-        4288
+        -1424,
+        4496
       ],
       "id": "f76d6954-96b7-4830-aa5b-0d077bd9d139",
       "name": "Execute a SQL query",
@@ -515,8 +515,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2096,
-        4288
+        -1872,
+        4496
       ],
       "id": "668853cf-3355-4e0e-8fd4-ebd0b0d3dde7",
       "name": "Code in JavaScript"
@@ -528,8 +528,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2096,
-        4592
+        -1872,
+        4800
       ],
       "id": "debd605d-4c07-451f-a671-afa925a4857e",
       "name": "Code in JavaScript1"
@@ -548,8 +548,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2320,
-        4592
+        -2096,
+        4800
       ],
       "id": "de3fdfea-9f92-481a-b583-09a7ca14bbef",
       "name": "Empresas sin contacto",
@@ -568,8 +568,8 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -1872,
-        4592
+        -1648,
+        4800
       ],
       "id": "096568b0-db91-4f74-9d57-167107ca7365",
       "name": "Empresa sin contacto"
@@ -583,8 +583,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1424,
-        4288
+        -1200,
+        4496
       ],
       "id": "ef554e5b-318a-411b-a499-2db5df39a878",
       "name": "Execute a SQL query1",
@@ -607,8 +607,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1200,
-        4288
+        -976,
+        4496
       ],
       "id": "6549b9d9-9670-43f0-b28c-74b5d3d2232d",
       "name": "HTTP Request1"
@@ -620,8 +620,8 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -2128,
-        4896
+        -1872,
+        5072
       ],
       "id": "3371261e-1bad-437e-a06b-64840c09d6a9",
       "name": "Loop Over Items3"
@@ -640,8 +640,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1904,
-        4816
+        -1648,
+        4992
       ],
       "id": "79d24930-9a3b-4e2f-9244-c88d7d3f4f64",
       "name": "GetUser1",
@@ -691,8 +691,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -1680,
-        4816
+        -1424,
+        4992
       ],
       "id": "75ba9dba-8b91-4c23-ae67-ff8cfcdd8577",
       "name": "Existe en HS?"
@@ -706,8 +706,8 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -2352,
-        4896
+        -2096,
+        5072
       ],
       "id": "abf2d9f4-a56b-4766-aa64-1e3e7c2343ef",
       "name": "Ultimos usuarios creados",
@@ -723,8 +723,8 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        -1232,
-        4816
+        -976,
+        4992
       ],
       "id": "a1415ed9-809b-4673-9cad-3829e76c6b7a",
       "name": "No Operation, do nothing"
@@ -734,8 +734,8 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -1008,
-        4896
+        -752,
+        5072
       ],
       "id": "882f8be4-7c08-4f95-97db-edb541f2a5b7",
       "name": "Wait",
@@ -753,8 +753,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1648,
-        4592
+        -1424,
+        4800
       ],
       "id": "b5e0836c-b2a4-4149-b7cd-56bb8b1ede1a",
       "name": "Sincronizador 1",
@@ -772,12 +772,82 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1456,
-        4752
+        -1200,
+        4816
       ],
       "id": "7806c451-c1fd-4759-a035-6563173b8324",
       "name": "Sincronizador 2",
       "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2320,
+        5072
+      ],
+      "id": "6556e26f-6da6-4a7b-b7c3-8b8e8c913fad",
+      "name": "Wait1",
+      "webhookId": "46b2916d-8d00-429d-b605-2b4b5c637ba8"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2320,
+        4800
+      ],
+      "id": "daac5d04-ceed-4184-a519-c5ede182b485",
+      "name": "Wait2",
+      "webhookId": "6b3befd9-75ad-443a-a4ae-348d107ac819"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2320,
+        4496
+      ],
+      "id": "3145cd6e-934b-4677-a31c-eda9500ef278",
+      "name": "Wait3",
+      "webhookId": "1f69990d-d4bf-4b18-9377-302b98c2261b"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2320,
+        3776
+      ],
+      "id": "9a02f4ed-e191-4ba3-a0e0-e00120d46b60",
+      "name": "Wait4",
+      "webhookId": "762725f2-a424-426a-836f-4db15ee8ea04"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2320,
+        4192
+      ],
+      "id": "3338235b-2b7f-43b5-a01e-eef4018ed084",
+      "name": "Wait5",
+      "webhookId": "a809f906-d0af-42df-844f-275d59743a01"
     }
   ],
   "pinData": {},
@@ -1004,32 +1074,32 @@
       "main": [
         [
           {
-            "node": "Buscar Agencias Habilitadas",
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait4",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait5",
             "type": "main",
             "index": 0
           },
           {
             "node": "Buscar Agencias Deshabilitadas",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Buscar Contactos Validados",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Buscar Contactos Sin Empresa",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Empresas sin contacto",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Ultimos usuarios creados",
             "type": "main",
             "index": 0
           }
@@ -1255,13 +1325,68 @@
           }
         ]
       ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Ultimos usuarios creados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Empresas sin contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait3": {
+      "main": [
+        [
+          {
+            "node": "Buscar Contactos Sin Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait4": {
+      "main": [
+        [
+          {
+            "node": "Buscar Contactos Validados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait5": {
+      "main": [
+        [
+          {
+            "node": "Buscar Agencias Habilitadas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "9fd2548b-80fc-4910-80d8-ef9a6f884b05",
+  "versionId": "cbb071af-c8a5-4582-8003-2852d51d62e3",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"

@@ -8,7 +8,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1376,
+        -960,
         -16
       ],
       "id": "05c6172a-0ff8-431d-8fda-e777cb9a2020",
@@ -28,7 +28,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1152,
+        -736,
         -16
       ],
       "id": "0760fb25-48e0-4841-adb3-beccac5c7e92",
@@ -47,7 +47,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -928,
+        -512,
         -16
       ],
       "id": "787a315c-bd46-4220-9e9f-d93cef847eb1",
@@ -81,7 +81,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -480,
+        -64,
         -208
       ],
       "id": "cf12803b-f394-41af-95e9-5f58f1ecd6a3",
@@ -101,7 +101,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -256,
+        160,
         -144
       ],
       "id": "e91f523c-48e0-4c08-867c-a5c6f3172ec3",
@@ -128,7 +128,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -256,
+        160,
         64
       ],
       "id": "2fbc7027-4939-48e9-a7cc-f9967b3658b9",
@@ -150,7 +150,7 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1600,
+        -1184,
         -16
       ],
       "id": "b57fcb5a-650a-4bee-b111-ca1ff521774c",
@@ -171,7 +171,7 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -1376,
+        -960,
         688
       ],
       "id": "9feedc1b-bb0b-41f3-bf01-a6031dc6d20c",
@@ -194,7 +194,7 @@
       "typeVersion": 2.1,
       "position": [
         -1824,
-        512
+        464
       ],
       "id": "fea58910-b0c2-48ab-bfcc-59f5606456d1",
       "name": "Recibir codigo",
@@ -214,7 +214,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -928,
+        -512,
         688
       ],
       "id": "dbc345fa-f02c-4fa7-922b-efe432314c10",
@@ -241,7 +241,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -480,
+        -64,
         496
       ],
       "id": "ed1dbd35-fe66-4fd5-90e9-56bd3ba4ed71",
@@ -261,7 +261,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1152,
+        -736,
         688
       ],
       "id": "6ca32bd1-23d6-4ccd-ab06-ccb615ee3838",
@@ -305,7 +305,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -704,
+        -288,
         592
       ],
       "id": "c2c16181-179d-4bfb-a82f-938f3fca4046",
@@ -325,7 +325,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -480,
+        -64,
         688
       ],
       "id": "a34ce4ee-03be-4699-b2d7-a9b9f154d0ea",
@@ -347,7 +347,7 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        208,
+        624,
         368
       ],
       "id": "83030cf9-4f52-4602-9436-658ab75b623b",
@@ -362,7 +362,7 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -704,
+        -288,
         -16
       ],
       "id": "bc913373-f3a1-4386-a711-7ffbc5a6f319",
@@ -375,7 +375,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -480,
+        -64,
         -400
       ],
       "id": "d69ccd2f-9250-404e-879a-2a835a2ebb7f",
@@ -388,7 +388,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        448,
+        864,
         352
       ],
       "id": "525d2f5a-4bef-4375-90b4-5d553ba6b5b9",
@@ -408,7 +408,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        672,
+        1088,
         352
       ],
       "id": "46abb97a-2d98-4d06-8d32-72e71217cf65",
@@ -422,36 +422,11 @@
       "onError": "continueErrorOutput"
     },
     {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "Yxtx97R2cXE7HJnk",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/Yxtx97R2cXE7HJnk",
-          "cachedResultName": "NotificarErrores"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {}
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "position": [
-        672,
-        -112
-      ],
-      "id": "a11f61c6-93dc-4deb-bd06-63a9b5f36c26",
-      "name": "Notificar error",
-      "disabled": true
-    },
-    {
       "parameters": {},
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        -256,
+        160,
         592
       ],
       "id": "d8cf7f82-ccb1-4b0e-9a0a-57ac8e67eedb",
@@ -475,7 +450,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        896,
+        1312,
         352
       ],
       "id": "5076b885-79ee-442c-87f1-41ad1e718d62",
@@ -500,7 +475,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        -704,
+        -288,
         784
       ],
       "id": "373719e0-77fc-4af0-88dc-643c38c06ab8",
@@ -535,7 +510,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -256,
+        160,
         880
       ],
       "id": "ba5a6755-ee36-40fc-98c8-2f83fd518648",
@@ -550,7 +525,7 @@
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
       "position": [
-        -32,
+        384,
         880
       ],
       "id": "99dbc066-1cb3-4f3b-aa1b-d542c513f415",
@@ -589,7 +564,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -32,
+        384,
         176
       ],
       "id": "3ba1a591-1a11-45f1-9c0a-bbda65ca57fc",
@@ -609,7 +584,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        192,
+        608,
         176
       ],
       "id": "504d06cf-1b8c-4ce4-b842-b202dbadff61",
@@ -649,7 +624,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        32,
+        448,
         -80
       ],
       "id": "776d247d-edda-4b03-8f0c-5eefe1248fed",
@@ -669,8 +644,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        288,
-        -96
+        800,
+        -80
       ],
       "id": "9cad7259-9827-4e1d-940a-74a0c8cb3bbb",
       "name": "Crear Nuevo Contacto sin telefono",
@@ -681,6 +656,21 @@
         }
       },
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1584,
+        464
+      ],
+      "id": "a8225731-5e74-4c6f-9a93-9f4b4b74911f",
+      "name": "Wait",
+      "webhookId": "19be9f6c-5bac-46c2-8194-de9ec3b5a5b3"
     }
   ],
   "pinData": {},
@@ -798,12 +788,7 @@
       "main": [
         [
           {
-            "node": "Consultar contactos en BD",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Consultar Agencia en BD",
+            "node": "Wait",
             "type": "main",
             "index": 0
           }
@@ -1030,13 +1015,29 @@
         ],
         []
       ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Consultar contactos en BD",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Consultar Agencia en BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "0ef24553-24f4-4d2f-9f0b-02c4b2953a6f",
+  "versionId": "88dc28cf-3c56-4cdf-b51e-de545b09893b",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"

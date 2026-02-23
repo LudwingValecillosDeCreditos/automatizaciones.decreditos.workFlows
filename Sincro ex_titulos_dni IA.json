@@ -61,7 +61,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT *\nFROM prendarios.ex_titulos_dni\nWHERE estado = 'PENDIENTE';",
+        "query": "SELECT *\nFROM prendarios.ex_titulos_dni etd\nWHERE etd.estado = 'PENDIENTE' AND etd.domicilio IS NOT NULL;",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
@@ -331,7 +331,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "dda88e6a-a941-427b-a5dd-fe7b40374186",
+  "versionId": "5b7b7b82-a594-4250-8744-37e40a9761a2",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "f5664ffb61e7249b25908d8d6df83645f6785fb397ba43d39348a86261f503d0"
